@@ -251,7 +251,7 @@
     <section id="home">
       <div class="hero-eyebrow">// 16 categories · one language · zero shortcuts</div>
       <h2>Every DSA pattern, <span>mapped</span> — a first batch fully <span>built</span>.</h2>
-      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>26 patterns</code> spanning arrays, strings, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
+      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>23 patterns</code> spanning arrays, strings, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
 
       <div class="stat-row" id="stat-row"></div>
 
@@ -271,7 +271,7 @@
     </section>
   </div>
 
-  <footer>// end of file · wave 5: 26/95 patterns fully built · rest follow the same engine on request</footer>
+  <footer>// end of file · wave 7: 23/95 patterns fully built · rest follow the same engine on request</footer>
 </main>
 
 <script>
@@ -1074,6 +1074,195 @@ function buildPalindromeCheck(){
   return {steps,code,arr,structureType:'array'};
 }
 
+/* ===================== PATTERN 21: String Two Pointers – Reverse Words / Characters ===================== */
+function buildReverseWords(){
+  const s = "the sky is blue";
+  const arr = s.split('');
+  const code=[
+"char[] c = s.toCharArray();",
+"reverse(c, 0, c.length - 1);",
+"int start = 0;",
+"for (int end = 0; end <= c.length; end++) {",
+"    if (end == c.length || c[end] == ' ') {",
+"        reverse(c, start, end - 1);",
+"        start = end + 1;",
+"    }",
+"}",
+"return new String(c);"];
+  const steps=[]; const work=[...arr];
+  function reverseRange(a,lo,hi,label){
+    let l=lo, r=hi;
+    while(l<r){
+      const t=a[l]; a[l]=a[r]; a[r]=t;
+      steps.push({line:1,vars:{lo,hi,l,r},pointers:[{idx:l,label:'l',color:'amber'},{idx:r,label:'r',color:'teal'}],cellColors:{[l]:'violet',[r]:'violet'},arrOverride:[...a],msg:`${label}: swap positions ${l} and ${r}.`});
+      l++; r--;
+    }
+  }
+  steps.push({line:0,vars:{s:`"${s}"`},pointers:[],cellColors:{},arrOverride:[...work],msg:'Copy the string into a character array so it can be reversed in place.'});
+  reverseRange(work,0,work.length-1,'Whole-string reverse');
+  steps.push({line:1,vars:{},pointers:[],cellColors:{},arrOverride:[...work],msg:`Whole string reversed: "${work.join('')}" — now every word appears in the right order but each word is itself backwards.`});
+  let start=0;
+  for(let end=0; end<=work.length; end++){
+    steps.push({line:3,vars:{start,end},pointers:[{idx:Math.min(end,work.length-1),label:'end',color:'teal'},{idx:start,label:'start',color:'amber'}],cellColors:rangeColor(start,Math.min(end,work.length-1),'teal'),arrOverride:[...work],msg:`Scanning for the next word boundary — end = ${end}.`});
+    if(end===work.length || work[end]===' '){
+      steps.push({line:4,vars:{start,end},pointers:[{idx:Math.min(end,work.length-1),label:'end',color:'teal'},{idx:start,label:'start',color:'amber'}],cellColors:rangeColor(start,end-1,'rose'),arrOverride:[...work],msg:`Found the end of a word — it spans [${start}..${end-1}], currently reversed.`});
+      reverseRange(work,start,end-1,`Un-reverse word [${start}..${end-1}]`);
+      start=end+1;
+      steps.push({line:6,vars:{start},pointers:[],cellColors:{},arrOverride:[...work],msg:`start moves past the space, ready for the next word.`});
+    }
+  }
+  steps.push({line:9,vars:{result:`"${work.join('')}"`},pointers:[],cellColors:{},arrOverride:[...work],msg:`Done. Words reversed in order, each word itself back to normal: "${work.join('')}"`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 22: String Two Pointers – String Compression ===================== */
+function buildStringCompression(){
+  const s = "aabbbcccc";
+  const arr = s.split('');
+  const code=[
+"int write = 0, read = 0;",
+"while (read < chars.length) {",
+"    char currentChar = chars[read];",
+"    int count = 0;",
+"    while (read < chars.length && chars[read] == currentChar) {",
+"        read++;",
+"        count++;",
+"    }",
+"    chars[write++] = currentChar;",
+"    if (count > 1) {",
+"        for (char d : String.valueOf(count).toCharArray()) {",
+"            chars[write++] = d;",
+"        }",
+"    }",
+"}",
+"return write;"];
+  const steps=[]; const work=[...arr]; let write=0, read=0;
+  const P=()=>[{idx:Math.min(write,work.length-1),label:'write',color:'amber'},{idx:Math.min(read,work.length-1),label:'read',color:'teal'}];
+  steps.push({line:0,vars:{write,read},pointers:P(),cellColors:{},arrOverride:[...work],msg:'write marks where the next compressed character goes; read scans through the original characters.'});
+  while(read<work.length){
+    const currentChar=work[read];
+    steps.push({line:2,vars:{read,currentChar},pointers:P(),cellColors:{[read]:'teal'},arrOverride:[...work],msg:`Start a new run at read=${read}, character '${currentChar}'.`});
+    let count=0;
+    const runStart=read;
+    while(read<work.length && work[read]===currentChar){
+      read++; count++;
+      steps.push({line:5,vars:{read,count},pointers:[{idx:Math.min(write,work.length-1),label:'write',color:'amber'},{idx:Math.min(read,work.length-1),label:'read',color:'teal'}],cellColors:rangeColor(runStart,read-1,'violet'),arrOverride:[...work],msg:`'${currentChar}' repeats — count = ${count}, read advances to ${read}.`});
+    }
+    work[write]=currentChar;
+    steps.push({line:8,vars:{write,currentChar},pointers:[{idx:write,label:'write',color:'amber'},{idx:Math.min(read,work.length-1),label:'read',color:'teal'}],cellColors:{[write]:'amber'},arrOverride:[...work],msg:`Write the character itself: chars[${write}] = '${currentChar}'.`});
+    write++;
+    if(count>1){
+      const digits=String(count).split('');
+      steps.push({line:9,vars:{count},pointers:P(),cellColors:{},arrOverride:[...work],msg:`count = ${count} is greater than 1 — write its digits right after the character.`});
+      for(const d of digits){
+        work[write]=d;
+        steps.push({line:10,vars:{write,digit:d},pointers:[{idx:write,label:'write',color:'amber'}],cellColors:{[write]:'rose'},arrOverride:[...work],msg:`Write digit '${d}' at chars[${write}].`});
+        write++;
+      }
+    } else {
+      steps.push({line:9,vars:{count},pointers:P(),cellColors:{},arrOverride:[...work],msg:`count = 1 — a single character needs no digit suffix, skip straight to the next run.`});
+    }
+  }
+  const finalArr = work.slice(0,write);
+  steps.push({line:13,vars:{write},pointers:[],cellColors:{},arrOverride:[...finalArr],msg:`Done. Compressed length = ${write}. Result: "${finalArr.join('')}"`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 23: String Pattern Matching – KMP (Failure Function) ===================== */
+function buildKMP(){
+  const patStr = "abab";
+  const textStr = "ababcababab";
+  const pat = patStr.split('');
+  const text = textStr.split('');
+  const code=[
+"int[] lps = new int[pat.length];",
+"int len = 0, i = 1;",
+"while (i < pat.length) {",
+"    if (pat[i] == pat[len]) {",
+"        lps[i] = ++len;",
+"        i++;",
+"    } else if (len != 0) {",
+"        len = lps[len - 1];",
+"    } else {",
+"        lps[i] = 0;",
+"        i++;",
+"    }",
+"}",
+"int j = 0, k = 0;",
+"while (k < text.length) {",
+"    if (text[k] == pat[j]) { k++; j++; }",
+"    if (j == pat.length) {",
+"        j = lps[j - 1];",
+"    } else if (k < text.length && text[k] != pat[j]) {",
+"        if (j != 0) j = lps[j - 1];",
+"        else k++;",
+"    }",
+"}"];
+  const steps=[];
+
+  // ---- Phase 1: build the lps (failure function) array over the pattern ----
+  const lpsDisplay = new Array(pat.length).fill('·');
+  const lps = new Array(pat.length).fill(0);
+  lps[0]=0; lpsDisplay[0]=0;
+  steps.push({line:0,vars:{pattern:`"${patStr}"`},pointers:[],cellColors:{},arrOverride:[...lpsDisplay],msg:'Allocate lps[] — for each prefix of the pattern, lps[i] stores the length of the longest proper prefix that is also a suffix of that prefix.'});
+  let len=0, i=1;
+  steps.push({line:1,vars:{len,i},pointers:[{idx:0,label:'len',color:'amber'},{idx:Math.min(1,pat.length-1),label:'i',color:'teal'}],cellColors:{0:'violet'},arrOverride:[...lpsDisplay],msg:'lps[0] is always 0 — a single character has no smaller proper prefix. Start len at 0 and i at 1.'});
+  while(i<pat.length){
+    steps.push({line:2,vars:{i,len},pointers:[{idx:i,label:'i',color:'teal'},{idx:len,label:'len',color:'amber'}],cellColors:{},arrOverride:[...lpsDisplay],msg:`Loop while i < pattern length. Comparing pat[${i}]='${pat[i]}' with pat[${len}]='${pat[len]}'.`});
+    if(pat[i]===pat[len]){
+      len++;
+      lps[i]=len; lpsDisplay[i]=len;
+      steps.push({line:4,vars:{i,len,'lps[i]':lps[i]},pointers:[{idx:i,label:'i',color:'teal'},{idx:len-1,label:'match',color:'amber'}],cellColors:{[i]:'violet'},arrOverride:[...lpsDisplay],msg:`pat[${i}] matches pat[${len-1}] — the matched prefix grows. lps[${i}] = ${len}.`});
+      i++;
+      steps.push({line:5,vars:{i},pointers:[{idx:Math.min(i,pat.length-1),label:'i',color:'teal'},{idx:len,label:'len',color:'amber'}],cellColors:{},arrOverride:[...lpsDisplay],msg:'i advances to the next character.'});
+    } else if(len!==0){
+      const oldLen=len;
+      steps.push({line:6,vars:{i,len,'pat[i]':pat[i],'pat[len]':pat[len]},pointers:[{idx:i,label:'i',color:'teal'},{idx:len,label:'len',color:'amber'}],cellColors:{[i]:'rose'},arrOverride:[...lpsDisplay],msg:`Mismatch, but len != 0 — don't restart from scratch. Fall back using an already-computed lps value.`});
+      len=lps[len-1];
+      steps.push({line:7,vars:{len,'lps[oldLen-1]':len},pointers:[{idx:i,label:'i',color:'teal'},{idx:len,label:'len',color:'amber'}],cellColors:{},arrOverride:[...lpsDisplay],msg:`len falls back to lps[${oldLen-1}] = ${len} — reusing previously computed prefix information instead of rescanning from the start.`});
+    } else {
+      lps[i]=0; lpsDisplay[i]=0;
+      steps.push({line:9,vars:{i,'lps[i]':0},pointers:[{idx:i,label:'i',color:'teal'}],cellColors:{[i]:'rose'},arrOverride:[...lpsDisplay],msg:`Mismatch with len already 0 — no proper prefix works here. lps[${i}] = 0.`});
+      i++;
+      steps.push({line:10,vars:{i},pointers:[{idx:Math.min(i,pat.length-1),label:'i',color:'teal'}],cellColors:{},arrOverride:[...lpsDisplay],msg:'i advances.'});
+    }
+  }
+  steps.push({line:12,vars:{lps:`[${lps.join(', ')}]`},pointers:[],cellColors:{},arrOverride:[...lpsDisplay],msg:`Failure function complete: lps = [${lps.join(', ')}]. Now use it to search "${patStr}" inside "${textStr}" without ever moving the text pointer backwards.`});
+
+  // ---- Phase 2: search the text using the lps array to skip re-comparisons ----
+  let j=0, k=0;
+  const matches=[];
+  const textDisplay=[...text];
+  steps.push({line:13,vars:{j,k},pointers:[{idx:0,label:'k',color:'amber'}],cellColors:{},arrOverride:[...textDisplay],msg:'Reset j (position in pattern) and k (position in text) to 0, and scan the text once — k never steps backward.'});
+  while(k<text.length){
+    steps.push({line:14,vars:{k,j,'text[k]':text[k],'pat[j]':pat[j]},pointers:[{idx:k,label:'k',color:'amber'}],cellColors:j>0?rangeColor(k-j,k-1,'teal'):{},arrOverride:[...textDisplay],msg:`Loop while k < text length. Comparing text[${k}]='${text[k]}' with pat[${j}]='${pat[j]}'.`});
+    if(text[k]===pat[j]){
+      steps.push({line:15,vars:{'text[k]':text[k],'pat[j]':pat[j]},pointers:[{idx:k,label:'k',color:'amber'}],cellColors:{[k]:'violet'},arrOverride:[...textDisplay],msg:`Characters match — advance both k and j together.`});
+      k++; j++;
+    }
+    if(j===pat.length){
+      const startIdx=k-j;
+      matches.push(startIdx);
+      steps.push({line:16,vars:{matchStart:startIdx,matchEnd:k-1},pointers:[{idx:k-1,label:'k',color:'amber'}],cellColors:rangeColor(startIdx,k-1,'violet'),arrOverride:[...textDisplay],msg:`j reached the pattern's full length — a match ends at text index ${k-1}, starting at index ${startIdx}.`});
+      const oldJ=j;
+      j=lps[j-1];
+      steps.push({line:17,vars:{j},pointers:[{idx:Math.min(k,text.length-1),label:'k',color:'amber'}],cellColors:{},arrOverride:[...textDisplay],msg:`Fall back j = lps[${oldJ-1}] = ${j} — keep scanning for overlapping matches instead of restarting the whole pattern.`});
+    } else if(k<text.length && text[k]!==pat[j]){
+      steps.push({line:18,vars:{k,j,'text[k]':text[k],'pat[j]':pat[j]},pointers:[{idx:k,label:'k',color:'rose'}],cellColors:{[k]:'rose'},arrOverride:[...textDisplay],msg:`Mismatch at text[${k}]='${text[k]}' vs pat[${j}]='${pat[j]}'.`});
+      if(j!==0){
+        const oldJ=j;
+        j=lps[j-1];
+        steps.push({line:19,vars:{j},pointers:[{idx:k,label:'k',color:'amber'}],cellColors:{},arrOverride:[...textDisplay],msg:`j != 0 — fall back using lps[${oldJ-1}] = ${j} instead of restarting from pattern index 0. The text pointer k never moves backward.`});
+      } else {
+        k++;
+        steps.push({line:20,vars:{k},pointers:[{idx:Math.min(k,text.length-1),label:'k',color:'amber'}],cellColors:{},arrOverride:[...textDisplay],msg:`j is already 0 — nothing to fall back to, so just move k forward past the mismatch.`});
+      }
+    }
+  }
+  steps.push({line:14,vars:{matches:`[${matches.join(', ')}]`},pointers:[],cellColors:{},arrOverride:[...textDisplay],msg:`Done scanning. "${patStr}" found starting at index ${matches.length?matches.join(', '):'nowhere'} in "${textStr}" — total time O(n + m), since k never backtracks.`});
+  return {steps,code,arr:textDisplay,structureType:'array'};
+}
+
 /* ===================== PATTERNS_DB ===================== */
 const PATTERNS_DB = {
 "Array||Two Pointers||Opposite Ends": {
@@ -1553,6 +1742,78 @@ const PATTERNS_DB = {
     {q:"Core idea of the palindrome check?", a:"Two pointers start at opposite ends and move inward, comparing characters at each step."},
     {q:"When do you know it's NOT a palindrome?", a:"The instant s[left] != s[right] for any pair — no need to check further."},
     {q:"Time / space complexity?", a:"O(n) time, O(1) space — no extra array is needed."}
+  ]
+},
+
+"String||Two Pointers||Reverse Words / Characters": {
+  build: buildReverseWords,
+  problem: "Reverse the order of the words in a sentence while keeping each word's own letters in the correct order (e.g. \"the sky is blue\" → \"blue is sky the\").",
+  concept: "Reversing the whole character array first flips everything, including each word internally, but it does put the words in the right final order. So the fix is a second pass: walk through and find each word's boundaries (marked by spaces or the end of the array), and reverse just that word's own range back to normal — using the same opposite-end two-pointer swap as a plain string reversal, just applied twice, at two different scopes.",
+  keywords: ["reverse words in a string","reverse in place","two-pass reversal","word boundaries","reverse characters"],
+  questions: ["Do I need to reverse order at one granularity (words) while preserving order at a finer one (letters within a word)?","Can I solve this with the same swap-from-both-ends trick applied twice, once globally and once per segment?","Can I detect segment boundaries (spaces, delimiters) with a simple scan?"],
+  eli10: "Imagine writing a sentence on toy blocks, one letter per block, then flipping the entire row of blocks end over end. Now the words are in the right final order, but each word's letters are backwards. So you go block by block, and every time you reach a gap between words, you flip just that one word's blocks back the right way around — leaving the word order alone.",
+  pitfalls: ["Reversing only once and stopping — that reverses letters within words too, which is wrong unless the problem actually wants full character reversal.","Off-by-one errors at the very last word — since there's no trailing space, the loop needs to treat 'end of array' as a boundary too, not just a literal space character.","Multiple consecutive spaces or leading/trailing spaces aren't handled — real implementations usually need to normalize whitespace before or during the scan."],
+  complexityTime:"O(n)", complexitySpace:"O(1) beyond the output array", complexityScale:2,
+  complexityNote:"Every character is touched a constant number of times: once in the full reversal, once in its own word's reversal.",
+  memoryStack:["start (int)","end (int)","l, r (int, inside reverse helper)"],
+  memoryHeap:"A char[] copy of the string, reversed and corrected in place.",
+  comparison:[
+    {name:"Palindrome Check", diff:"Palindrome check also uses opposite-end pointers, but only compares — it never writes/swaps values to build a new arrangement."},
+    {name:"String Compression", diff:"Compression uses a read/write pointer pair moving in the same direction, not opposite ends closing inward."}
+  ],
+  tips: ["Whenever a problem needs order flipped at one level but preserved at a finer level, think 'reverse everything, then reverse each piece back'.","Reuse a single reverse(array, lo, hi) helper for both the whole-string reversal and each word's correction — don't write the swap logic twice.","Treat 'end of the array' as an implicit word boundary alongside actual space characters, or the last word gets missed."],
+  flash: [
+    {q:"What's the two-pass trick here?", a:"Reverse the entire character array first, then reverse each individual word's range back to normal."},
+    {q:"Why does this work?", a:"The first full reversal gets the word order right; the second pass only needs to fix each word's internal letter order, which the same reverse helper does per segment."},
+    {q:"Time / space complexity?", a:"O(n) time — every character is touched a constant number of times; O(1) extra space beyond the output buffer."}
+  ]
+},
+
+"String||Two Pointers||String Compression": {
+  build: buildStringCompression,
+  problem: "Compress a string in place by replacing consecutive runs of the same character with the character followed by its count (e.g. \"aabbbcccc\" → \"a2b3c4\"), returning the new length.",
+  concept: "Use two pointers moving in the same direction: read scans through the original characters counting how long each run of identical characters is, while write marks where the next piece of the compressed output goes. For each run, write the character once, then — only if the run's length is more than 1 — write out its count digit by digit, before read moves on to the next distinct run.",
+  keywords: ["string compression","run-length encoding","read/write pointers","in place","consecutive characters"],
+  questions: ["Do I need to collapse consecutive repeated elements into a shorter, in-place representation?","Can I use one pointer to scan and count runs while a second, slower pointer marks where to write the compact result?","Does a run of length 1 need special handling (no digit suffix) versus a run of length 2 or more?"],
+  eli10: "Imagine reading out loud a long line of colored beads, but instead of saying every bead's color one at a time, you say each color once followed by how many beads of that color are in a row — 'red red red' becomes 'red, 3'. You keep a spot to write your shorter description while your eyes keep scanning ahead through the original beads.",
+  pitfalls: ["Forgetting the count > 1 check — a run of length 1 should just write the character with no digit suffix, or the compressed string can end up longer than the original.","Writing multi-digit counts as a single character — count 12 needs two separate write slots ('1' then '2'), not one combined digit.","Confusing this with the fast/slow 'move zeroes' pattern — here read doesn't move one step per iteration, it jumps ahead by the whole length of the current run before write catches up."],
+  complexityTime:"O(n)", complexitySpace:"O(1) extra (in place)", complexityScale:2,
+  complexityNote:"read visits every character exactly once across all runs combined; write only ever moves forward, so total work stays linear despite the nested inner while loop.",
+  memoryStack:["write (int)","read (int)","count (int)","currentChar (char)"],
+  memoryHeap:"The input char[] array, overwritten in place with the compressed result.",
+  comparison:[
+    {name:"Same Direction Fast & Slow (Move Zeroes)", diff:"Move Zeroes' fast pointer always advances exactly one step per iteration; here read jumps forward by an entire run's length before write catches up, and write may itself advance by more than one slot per run (character + digits)."},
+    {name:"Reverse Words / Characters", diff:"Reverse Words uses opposite-end pointers closing inward on a fixed-size range; compression uses same-direction pointers building a new, shorter arrangement as it scans forward."}
+  ],
+  tips: ["'Compress consecutive repeated characters in place' is the strongest signal for a read/write pointer pair built around run-length counting.","Always ask: does this run have length 1? If so, skip the digit-writing step entirely — that's the detail most first attempts miss.","write's final value is exactly the answer (the new length) — no separate counter is needed, it falls out of the pointer walk naturally."],
+  flash: [
+    {q:"What does 'write' track?", a:"The next position in the array where compressed output should be placed — it only advances when something is actually written."},
+    {q:"When is a run's count NOT written as digits?", a:"When the run's length is exactly 1 — a lone character needs no digit suffix."},
+    {q:"Time / space complexity?", a:"O(n) time — read visits every character once across all runs; O(1) extra space since the array is compressed in place."}
+  ]
+},
+
+"String||Pattern Matching||KMP (Failure Function)": {
+  build: buildKMP,
+  problem: "Search for every occurrence of a pattern inside a text string, without ever re-scanning a text character once it's been matched.",
+  concept: "Precompute a failure function lps[] over the pattern itself, where lps[i] is the length of the longest proper prefix of pat[0..i] that is also a suffix of it. During the build, a mismatch doesn't restart len from 0 — it falls back to lps[len-1], reusing prefix information already discovered. During the search, the same idea applies to the text: on a mismatch, the pattern pointer j falls back using lps[j-1] instead of restarting from 0, and the text pointer k never moves backward — that's what keeps the whole search linear.",
+  keywords: ["KMP","failure function","lps array","longest prefix suffix","string matching","substring search","no backtracking"],
+  questions: ["Do I need every occurrence of a pattern inside a text, and would naive matching's O(n·m) worst case (repeated re-scanning) be too slow?","Can the pattern's own self-overlap (a prefix that's also a suffix) tell me how far I can safely skip on a mismatch?","Does the text pointer only ever need to move forward, never backward, once I have the right fallback structure?"],
+  eli10: "Imagine you're checking a long fence for a repeating painted pattern, and partway through matching you hit a plank that doesn't fit. A naive checker would walk all the way back and start over from the very next plank. KMP is smarter — it remembers that the part of the pattern it already matched has some self-overlap, like a word that starts and ends the same way, so it can slide the pattern forward and immediately resume checking from the right spot, without ever re-looking at fence planks it already confirmed.",
+  pitfalls: ["Building the lps array incorrectly — the most common bug is restarting len to 0 on every mismatch instead of falling back to lps[len-1] when len != 0.","Confusing the two loops — the lps-building loop walks through the pattern alone; the search loop walks through the text using the pattern and the lps array together; mixing their indices up is a frequent source of bugs.","Assuming the text pointer ever needs to move backward — it never does in KMP; only the pattern pointer j falls back, which is exactly what makes this O(n + m) instead of O(n·m)."],
+  complexityTime:"O(n + m)", complexitySpace:"O(m)", complexityScale:1,
+  complexityNote:"Building lps[] takes O(m) (pattern length), and the search itself takes O(n) (text length) since k never backtracks — total time is O(n + m), independent of how much repetition the pattern or text contains.",
+  memoryStack:["len, i (int, during lps build)","j, k (int, during search)"],
+  memoryHeap:"An int[] lps array of length equal to the pattern, plus the input text and pattern character arrays.",
+  comparison:[
+    {name:"Rabin–Karp (Rolling Hash)", diff:"Rabin–Karp compares rolling hashes of fixed-size windows for an average-case fast search, but can degrade with hash collisions; KMP guarantees O(n+m) worst-case using purely structural prefix/suffix information, no hashing involved."},
+    {name:"Z-Algorithm", diff:"The Z-array also encodes prefix-matching information, but as 'longest match with the whole string starting at each position' rather than 'longest matching prefix-suffix pair' — both achieve linear-time matching via a different precomputed array."}
+  ],
+  tips: ["Build the lps array as its own clearly separate step before writing any search logic — get it fully correct and tested in isolation first.","Say the invariant out loud: 'lps[i] = length of the longest proper prefix of pat[0..i] that's also a suffix of pat[0..i]' — write it as a comment above the build loop.","In the search phase, the exact same fallback idea (len = lps[len-1] on mismatch) is reused with j — recognizing that the build and search loops share one core idea makes the second loop much easier to trust."],
+  flash: [
+    {q:"What does lps[i] represent?", a:"The length of the longest proper prefix of the pattern's first i+1 characters that is also a suffix of that same substring."},
+    {q:"On a mismatch during the search, which pointer moves backward — k (text) or j (pattern)?", a:"Neither moves backward in the usual sense — k never backtracks at all; only j falls back, using lps[j-1], which is what keeps the algorithm linear."},
+    {q:"Time / space complexity?", a:"O(n + m) time, O(m) space for the lps array, where n is text length and m is pattern length."}
   ]
 }
 };
