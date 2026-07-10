@@ -251,7 +251,7 @@
     <section id="home">
       <div class="hero-eyebrow">// 16 categories · one language · zero shortcuts</div>
       <h2>Every DSA pattern, <span>mapped</span> — a first batch fully <span>built</span>.</h2>
-      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>29 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
+      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>33 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
 
       <div class="stat-row" id="stat-row"></div>
 
@@ -271,7 +271,7 @@
     </section>
   </div>
 
-  <footer>// end of file · wave 11: 29/95 patterns fully built · rest follow the same engine on request</footer>
+  <footer>// end of file · wave 14: 33/95 patterns fully built · rest follow the same engine on request</footer>
 </main>
 
 <script>
@@ -726,7 +726,7 @@ function buildBinarySearch(){
   return {steps,code,arr,structureType:'array'};
 }
 
-/* ===================== PATTERN 12: Nearest Element – Next Greater (Monotonic Stack) ===================== */
+/* ===================== PATTERN 12: Nearest Element – Next Greater ===================== */
 function buildNextGreater(){
   const arr=[2,1,2,4,3];
   const code=[
@@ -752,6 +752,97 @@ function buildNextGreater(){
     steps.push({line:7,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Push index ${i} — waiting for something bigger to its right.`});
   }
   steps.push({line:9,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:`Done. result = [${result.join(', ')}]`});
+  return {steps,code,arr,structureType:'stack'};
+}
+
+/* ===================== PATTERN 12a: Nearest Element – Next Smaller ===================== */
+function buildNextSmaller(){
+  const arr=[4,5,2,10,8];
+  const code=[
+"Deque<Integer> stack = new ArrayDeque<>();",
+"int[] result = new int[arr.length];",
+"Arrays.fill(result, -1);",
+"for (int i = 0; i < arr.length; i++) {",
+"    while (!stack.isEmpty() && arr[stack.peek()] > arr[i]) {",
+"        result[stack.pop()] = arr[i];",
+"    }",
+"    stack.push(i);",
+"}"];
+  const steps=[]; const stack=[]; const result=new Array(arr.length).fill(-1);
+  steps.push({line:1,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:'Start with an empty stack and result filled with -1. Each index waits on the stack until something SMALLER appears to its right.'});
+  for(let i=0;i<arr.length;i++){
+    steps.push({line:3,vars:{i,'arr[i]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Looking at index ${i} (value ${arr[i]}).`});
+    while(stack.length && arr[stack[stack.length-1]]>arr[i]){
+      const popped=stack.pop();
+      result[popped]=arr[i];
+      steps.push({line:5,vars:{i,popped,'result[popped]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'},{idx:popped,label:'pop',color:'rose'}],cellColors:{[popped]:'violet',[i]:'amber'},stack:[...stack],msg:`arr[${i}]=${arr[i]} is smaller than arr[${popped}]=${arr[popped]} — pop it, its next-smaller answer is ${arr[i]}.`});
+    }
+    stack.push(i);
+    steps.push({line:7,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Push index ${i} — waiting for something smaller to its right.`});
+  }
+  steps.push({line:9,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:`Done. result = [${result.join(', ')}]`});
+  return {steps,code,arr,structureType:'stack'};
+}
+
+/* ===================== PATTERN 12b: Monotonic Stack – Increasing (Next Smaller Element) ===================== */
+function buildIncreasingStackNextSmaller(){
+  const arr=[4,10,5,8,3,2,9];
+  const code=[
+"Deque<Integer> stack = new ArrayDeque<>();",
+"int[] result = new int[arr.length];",
+"Arrays.fill(result, -1);",
+"for (int i = 0; i < arr.length; i++) {",
+"    while (!stack.isEmpty() && arr[stack.peek()] > arr[i]) {",
+"        result[stack.pop()] = arr[i];",
+"    }",
+"    stack.push(i);",
+"}"];
+  const steps=[]; const stack=[]; const result=new Array(arr.length).fill(-1);
+  steps.push({line:1,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:'Start with an empty stack and result filled with -1. The stack will always hold indices whose values increase from bottom to top.'});
+  for(let i=0;i<arr.length;i++){
+    steps.push({line:3,vars:{i,'arr[i]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Looking at index ${i} (value ${arr[i]}).`});
+    while(stack.length && arr[stack[stack.length-1]]>arr[i]){
+      const popped=stack.pop();
+      result[popped]=arr[i];
+      steps.push({line:5,vars:{i,popped,'result[popped]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'},{idx:popped,label:'pop',color:'rose'}],cellColors:{[popped]:'violet',[i]:'amber'},stack:[...stack],msg:`arr[${i}]=${arr[i]} is smaller than arr[${popped}]=${arr[popped]} — pop it, its next-smaller answer is ${arr[i]}. Popping keeps the stack increasing.`});
+    }
+    stack.push(i);
+    steps.push({line:7,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Push index ${i} — the stack stays increasing bottom-to-top, so this index waits for something smaller to its right.`});
+  }
+  steps.push({line:9,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:`Done. result = [${result.join(', ')}] — every value's next smaller element to the right (or -1 if none exists).`});
+  return {steps,code,arr,structureType:'stack'};
+}
+
+/* ===================== PATTERN 12c: Monotonic Stack – Decreasing (Previous Greater Element) ===================== */
+function buildDecreasingStackPreviousGreater(){
+  const arr=[4,10,5,8,3,2,12];
+  const code=[
+"Deque<Integer> stack = new ArrayDeque<>();",
+"int[] result = new int[arr.length];",
+"for (int i = 0; i < arr.length; i++) {",
+"    while (!stack.isEmpty() && arr[stack.peek()] <= arr[i]) {",
+"        stack.pop();",
+"    }",
+"    result[i] = stack.isEmpty() ? -1 : arr[stack.peek()];",
+"    stack.push(i);",
+"}"];
+  const steps=[]; const stack=[]; const result=new Array(arr.length).fill(-1);
+  steps.push({line:1,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:'Start with an empty stack and result array. The stack will always hold indices whose values decrease from bottom to top — the top is always the nearest still-relevant candidate for the "previous greater" answer.'});
+  for(let i=0;i<arr.length;i++){
+    steps.push({line:2,vars:{i,'arr[i]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Looking at index ${i} (value ${arr[i]}).`});
+    while(stack.length && arr[stack[stack.length-1]]<=arr[i]){
+      const popped=stack.pop();
+      steps.push({line:4,vars:{i,popped,'arr[popped]':arr[popped]},pointers:[{idx:i,label:'i',color:'amber'},{idx:popped,label:'pop',color:'rose'}],cellColors:{[popped]:'rose',[i]:'amber'},stack:[...stack],msg:`arr[${popped}]=${arr[popped]} is <= arr[${i}]=${arr[i]} — it can never be a "previous greater" for anything from here on, since ${arr[i]} is at least as big and closer. Pop it, keeping the stack decreasing.`});
+    }
+    const ans = stack.length ? arr[stack[stack.length-1]] : -1;
+    result[i]=ans;
+    const withPrev = stack.length ? [{idx:i,label:'i',color:'amber'},{idx:stack[stack.length-1],label:'prev',color:'violet'}] : [{idx:i,label:'i',color:'amber'}];
+    const cc = stack.length ? {[stack[stack.length-1]]:'violet',[i]:'amber'} : {[i]:'rose'};
+    steps.push({line:6,vars:{i,'result[i]':ans},pointers:withPrev,cellColors:cc,stack:[...stack],msg: stack.length? `The new top of the stack, arr[${stack[stack.length-1]}]=${ans}, is the nearest still-standing value to the left that's bigger than arr[${i}] — that's its previous greater element.` : `Nothing left on the stack — no element to the left of index ${i} is bigger than arr[${i}]=${arr[i]}. result[${i}] = -1.`});
+    stack.push(i);
+    steps.push({line:7,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Push index ${i} — it may itself be the "previous greater" answer for some element still to come, so it stays on the stack until something bigger or equal arrives.`});
+  }
+  steps.push({line:8,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:`Done. result = [${result.join(', ')}] — the previous greater element for each position (or -1 if none exists).`});
   return {steps,code,arr,structureType:'stack'};
 }
 
@@ -1348,7 +1439,93 @@ function buildRabinKarp(){
   return {steps,code:codeLines,arr:text,structureType:'array'};
 }
 
-/* ===================== PATTERN 25: Hash Map – Frequency Based (First Unique Character) ===================== */
+/* ===================== PATTERN 25: Pattern Matching – Z-Algorithm ===================== */
+function buildZAlgorithm(){
+  const patStr = "aba";
+  const textStr = "ababcaba";
+  const combined = patStr + "$" + textStr;
+  const s = combined.split('');
+  const n = s.length;
+  const m = patStr.length;
+  const code=[
+"String combined = pattern + \"$\" + text;",
+"int n = combined.length();",
+"int[] z = new int[n];",
+"int l = 0, r = 0;",
+"for (int i = 1; i < n; i++) {",
+"    if (i < r) {",
+"        z[i] = Math.min(r - i, z[i - l]);",
+"    }",
+"    while (i + z[i] < n && combined.charAt(z[i]) == combined.charAt(i + z[i])) {",
+"        z[i]++;",
+"    }",
+"    if (i + z[i] > r) {",
+"        l = i; r = i + z[i];",
+"    }",
+"}",
+"List<Integer> matches = new ArrayList<>();",
+"for (int i = m + 1; i < n; i++) {",
+"    if (z[i] == m) matches.add(i - m - 1);",
+"}"];
+
+  const steps=[];
+  const z = new Array(n).fill(0);
+  const zDisplay = new Array(n).fill('\u00b7');
+  let l=0, r=0;
+
+  steps.push({line:0,vars:{pattern:`"${patStr}"`,text:`"${textStr}"`},pointers:[],cellColors:{},arrOverride:[...s],msg:`Concatenate pattern + a separator ('$', absent from both strings) + text into one string — a single Z-array pass over this combined string can then search for the pattern inside the text.`});
+  steps.push({line:1,vars:{n},pointers:[],cellColors:{},arrOverride:[...s],msg:`Combined string length n = ${n}.`});
+  steps.push({line:2,vars:{},pointers:[],cellColors:{},arrOverride:[...zDisplay],msg:'Allocate z[] — z[i] will store the length of the longest substring starting at i that also matches a prefix of the combined string.'});
+  steps.push({line:3,vars:{l,r},pointers:[{idx:0,label:'l/r',color:'amber'}],cellColors:{},arrOverride:[...zDisplay],msg:'l and r track the current "Z-box" — the rightmost window discovered so far that matches a prefix. Both start at 0 (an empty box). z[0] is left unused by convention.'});
+
+  for(let idx=1; idx<n; idx++){
+    let zi = 0;
+    steps.push({line:4,vars:{i:idx,l,r},pointers:[{idx:idx,label:'i',color:'teal'},{idx:l,label:'l',color:'amber'},{idx:Math.max(r-1,0),label:'r',color:'violet'}],cellColors:{},arrOverride:[...zDisplay],msg:`Loop i from 1 to n-1. Currently i = ${idx}.`});
+    if(idx<r){
+      zi = Math.min(r-idx, z[idx-l]);
+      steps.push({line:5,vars:{i:idx,l,r,'r-i':r-idx,'z[i-l]':z[idx-l]},pointers:[{idx:idx,label:'i',color:'teal'},{idx:idx-l,label:'i-l',color:'rose'}],cellColors:{[idx-l]:'rose'},arrOverride:[...zDisplay],msg:`i is inside the current Z-box [${l},${r}) — reuse already-known information instead of comparing from scratch: z[${idx}] starts at min(r-i, z[i-l]) = min(${r-idx}, ${z[idx-l]}) = ${zi}.`});
+    } else {
+      steps.push({line:5,vars:{i:idx,l,r},pointers:[{idx:idx,label:'i',color:'teal'}],cellColors:{},arrOverride:[...zDisplay],msg:`i is outside the current Z-box — no reusable information here, so z[${idx}] starts at 0 and can only grow by direct character comparison.`});
+    }
+    zDisplay[idx]=zi;
+    let grew=false;
+    while(idx+zi<n && s[zi]===s[idx+zi]){
+      zi++;
+      grew=true;
+      zDisplay[idx]=zi;
+      steps.push({line:7,vars:{i:idx,'z[i]':zi},pointers:[{idx:idx,label:'i',color:'teal'},{idx:zi-1,label:'match',color:'violet'}],cellColors:{[zi-1]:'violet',[idx+zi-1]:'violet'},arrOverride:[...zDisplay],msg:`Characters match — extend directly by comparing combined[${zi-1}] with combined[${idx+zi-1}]. z[${idx}] grows to ${zi}.`});
+    }
+    z[idx]=zi;
+    if(!grew){
+      steps.push({line:7,vars:{i:idx,'z[i]':zi},pointers:[{idx:idx,label:'i',color:'teal'}],cellColors:{},arrOverride:[...zDisplay],msg:`No further direct match possible from here — z[${idx}] stays ${zi}.`});
+    }
+    if(idx+zi>r){
+      const oldR=r;
+      l=idx; r=idx+zi;
+      steps.push({line:9,vars:{i:idx,'i+z[i]':idx+zi,newL:l,newR:r},pointers:[{idx:l,label:'l',color:'amber'},{idx:Math.max(r-1,0),label:'r',color:'violet'}],cellColors:rangeColor(l,r-1,'teal'),arrOverride:[...zDisplay],msg:`This match extends past the current Z-box's right edge (was ${oldR}) — update the box to [${l}, ${r}), the furthest-right match discovered so far.`});
+    } else {
+      steps.push({line:9,vars:{i:idx,'i+z[i]':idx+zi,r},pointers:[{idx:idx,label:'i',color:'teal'}],cellColors:{},arrOverride:[...zDisplay],msg:`This match doesn't reach past the current Z-box's right edge (${r}) — the box stays as is.`});
+    }
+  }
+
+  steps.push({line:14,vars:{z:`[${z.join(', ')}]`},pointers:[],cellColors:{},arrOverride:[...zDisplay],msg:`Z-array complete: [${z.join(', ')}]. A match of the pattern occurs wherever z[i] equals the pattern's length (${m}), at any position after the separator.`});
+
+  const matches=[];
+  for(let idx=m+1; idx<n; idx++){
+    const isMatch = z[idx]===m;
+    steps.push({line:16,vars:{i:idx,'z[i]':z[idx],patternLen:m},pointers:[{idx:idx,label:'i',color:'amber'}],cellColors:isMatch?rangeColor(idx,Math.min(idx+m-1,n-1),'violet'):{},arrOverride:[...zDisplay],msg: isMatch? `z[${idx}] = ${m} equals the pattern's length — a full match starts in the text at index ${idx-m-1}.` : `z[${idx}] = ${z[idx]} — not a full match, keep scanning.`});
+    if(isMatch){
+      matches.push(idx-m-1);
+      steps.push({line:17,vars:{matchIndex:idx-m-1},pointers:[{idx:idx,label:'\u2713',color:'violet'}],cellColors:rangeColor(idx,Math.min(idx+m-1,n-1),'violet'),arrOverride:[...zDisplay],msg:`Match recorded at text index ${idx-m-1}.`});
+    }
+  }
+
+  steps.push({line:17,vars:{matches:`[${matches.join(', ')}]`},pointers:[],cellColors:{},arrOverride:[...zDisplay],msg:`Done. Pattern "${patStr}" found at index ${matches.length?matches.join(', '):'nowhere'} in "${textStr}" — the entire search took a single O(n) pass over the combined string, with no hashing and no backtracking.`});
+
+  return {steps,code,arr:s,structureType:'array'};
+}
+
+/* ===================== PATTERN 26: Hash Map – Frequency Based (First Unique Character) ===================== */
 function buildFirstUniqueChar(){
   const s = "loveleetcode";
   const arr = s.split('');
@@ -1386,7 +1563,7 @@ function buildFirstUniqueChar(){
   return {steps,code,arr,structureType:'array'};
 }
 
-/* ===================== PATTERN 26: Hash Map – Lookup Based (Two Sum) ===================== */
+/* ===================== PATTERN 27: Hash Map – Lookup Based (Two Sum) ===================== */
 function buildTwoSumLookup(){
   const arr=[2,7,11,15], target=9;
   const code=[
@@ -1417,7 +1594,7 @@ function buildTwoSumLookup(){
   return {steps,code,arr,structureType:'array'};
 }
 
-/* ===================== PATTERN 27: Hash Map – Set Based (Longest Consecutive Sequence) ===================== */
+/* ===================== PATTERN 28: Hash Map – Set Based (Longest Consecutive Sequence) ===================== */
 function buildLongestConsecutiveSet(){
   const arr=[100,4,200,1,3,2];
   const code=[
@@ -1458,6 +1635,114 @@ function buildLongestConsecutiveSet(){
     }
   }
   steps.push({line:12,vars:{longest},pointers:[],cellColors:{},msg:`Done. The longest run of consecutive integers has length ${longest}.`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 29: Hash Map – Index Mapping (First Missing Positive) ===================== */
+function buildIndexMapping(){
+  const arr=[3,4,-1,1];
+  const code=[
+"int n = arr.length;",
+"for (int i = 0; i < n; i++) {",
+"    while (arr[i] > 0 && arr[i] <= n && arr[arr[i] - 1] != arr[i]) {",
+"        int correctIdx = arr[i] - 1;",
+"        int temp = arr[i];",
+"        arr[i] = arr[correctIdx];",
+"        arr[correctIdx] = temp;",
+"    }",
+"}",
+"for (int i = 0; i < n; i++) {",
+"    if (arr[i] != i + 1) {",
+"        return i + 1;",
+"    }",
+"}",
+"return n + 1;"];
+  const steps=[]; const work=[...arr]; const n=work.length;
+  const P=(i,extra)=>[{idx:i,label:'i',color:'amber'}, ...(extra||[])];
+  steps.push({line:0,vars:{n},pointers:[],cellColors:{},arrOverride:[...work],msg:`n = ${n}. The plan: place every value v (where 1 <= v <= n) at index v-1, using the array itself as a hash table — that's index mapping.`});
+  for(let i=0;i<n;i++){
+    steps.push({line:1,vars:{i},pointers:P(i),cellColors:{},arrOverride:[...work],msg:`Looking at index ${i}, value ${work[i]}.`});
+    let guard=0;
+    while(work[i]>0 && work[i]<=n && work[work[i]-1]!==work[i]){
+      guard++; if(guard>20) break; // safety
+      const correctIdx=work[i]-1;
+      steps.push({line:2,vars:{i,'arr[i]':work[i],correctIdx,'arr[correctIdx]':work[correctIdx]},pointers:P(i,[{idx:correctIdx,label:'target',color:'teal'}]),cellColors:{[i]:'rose',[correctIdx]:'teal'},arrOverride:[...work],msg:`arr[${i}] = ${work[i]} belongs at index ${correctIdx} (value-1), and that slot doesn't already hold it — swap them into place.`});
+      const temp=work[i];
+      work[i]=work[correctIdx];
+      work[correctIdx]=temp;
+      steps.push({line:5,vars:{i,correctIdx},pointers:P(i,[{idx:correctIdx,label:'target',color:'teal'}]),cellColors:{[i]:'violet',[correctIdx]:'violet'},arrOverride:[...work],msg:`Swapped arr[${i}] and arr[${correctIdx}] — value ${temp} is now sitting at its correct home, index ${correctIdx}.`});
+    }
+    if(work[i]<=0 || work[i]>n){
+      steps.push({line:2,vars:{i,'arr[i]':work[i]},pointers:P(i),cellColors:{[i]:'rose'},arrOverride:[...work],msg:`arr[${i}] = ${work[i]} is out of the valid range [1, ${n}] — it can never be placed at a real index, so leave it and move on.`});
+    } else {
+      steps.push({line:2,vars:{i,'arr[i]':work[i]},pointers:P(i),cellColors:{[i]:'teal'},arrOverride:[...work],msg:`arr[${i}] = ${work[i]} is already at its correct home (index ${work[i]-1}) — nothing to swap, move to the next index.`});
+    }
+  }
+  steps.push({line:8,vars:{},pointers:[],cellColors:{},arrOverride:[...work],msg:`Placement pass complete: [${work.join(', ')}]. Now scan for the first index i where arr[i] != i + 1 — that gap reveals the answer.`});
+  for(let i=0;i<n;i++){
+    const correct = work[i]===i+1;
+    steps.push({line:9,vars:{i,'arr[i]':work[i],'i+1':i+1},pointers:P(i),cellColors:{[i]: correct?'teal':'rose'},arrOverride:[...work],msg: correct? `arr[${i}] = ${i+1} — correctly placed, keep scanning.` : `arr[${i}] = ${work[i]}, but index ${i} should hold ${i+1} — this is the first gap. The missing positive is ${i+1}.`});
+    if(!correct){
+      steps.push({line:10,vars:{result:i+1},pointers:[{idx:i,label:'\u2713',color:'violet'}],cellColors:{[i]:'violet'},arrOverride:[...work],msg:`Done. The first missing positive integer is ${i+1}.`});
+      return {steps,code,arr,structureType:'array'};
+    }
+  }
+  steps.push({line:13,vars:{result:n+1},pointers:[],cellColors:{},arrOverride:[...work],msg:`Every index i holds i+1 — indices 1..${n} are all present, so the first missing positive is n+1 = ${n+1}.`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 30: Hash Map – Grouping Pattern (Group Anagrams) ===================== */
+function groupColorFor(keyColorMap, groups, arr){
+  const colorByWord = {};
+  Object.entries(groups).forEach(([k,words])=>{
+    words.forEach(w=>{ colorByWord[w] = keyColorMap[k]; });
+  });
+  const result={};
+  arr.forEach((w,i)=>{ if(colorByWord[w]!==undefined) result[i]=colorByWord[w]; });
+  return result;
+}
+function buildGroupingPattern(){
+  const arr=["eat","tea","tan","ate","nat","bat"];
+  const code=[
+"Map<String, List<String>> groups = new HashMap<>();",
+"for (String word : strs) {",
+"    char[] chars = word.toCharArray();",
+"    Arrays.sort(chars);",
+"    String key = new String(chars);",
+"    groups.computeIfAbsent(key, k -> new ArrayList<>()).add(word);",
+"}",
+"return new ArrayList<>(groups.values());"];
+  const steps=[];
+  const groups={};       // key -> [words]
+  const keyColor={};     // key -> color name
+  const colorPalette=['amber','teal','rose','violet'];
+  let colorIdx=0;
+  const fmtGroups=()=>Object.values(groups).map(g=>`[${g.join(', ')}]`).join('  ');
+
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},arrOverride:[...arr],msg:'groups will map each word\'s sorted-letters signature to the list of words that share it — every anagram of a word produces the exact same signature.'});
+
+  for(let i=0;i<arr.length;i++){
+    const word=arr[i];
+    steps.push({line:1,vars:{i,word},pointers:[{idx:i,label:'word',color:'amber'}],cellColors:groupColorFor(keyColor,groups,arr),arrOverride:[...arr],msg:`Looking at word "${word}".`});
+
+    const sortedChars=word.split('').sort();
+    const key=sortedChars.join('');
+    steps.push({line:3,vars:{word:`"${word}"`,sortedChars:`"${sortedChars.join('')}"`},pointers:[{idx:i,label:'word',color:'amber'}],cellColors:{...groupColorFor(keyColor,groups,arr),[i]:'amber'},arrOverride:[...arr],msg:`Sort the word's own letters to build its signature — key = "${key}". Any rearrangement of "${word}" produces this exact same key.`});
+    steps.push({line:4,vars:{key:`"${key}"`},pointers:[{idx:i,label:'word',color:'amber'}],cellColors:{...groupColorFor(keyColor,groups,arr),[i]:'amber'},arrOverride:[...arr],msg:`key = "${key}" — does a group already exist for this signature?`});
+
+    const isNew = !(key in groups);
+    if(isNew){
+      groups[key]=[];
+      keyColor[key]=colorPalette[colorIdx % colorPalette.length];
+      colorIdx++;
+      steps.push({line:4,vars:{key:`"${key}"`,action:'no group yet — create one'},pointers:[{idx:i,label:'word',color:'amber'}],cellColors:{...groupColorFor(keyColor,groups,arr),[i]:keyColor[key]},arrOverride:[...arr],msg:`No group exists for key "${key}" yet — start a brand-new bucket for it.`});
+    }
+    groups[key].push(word);
+    steps.push({line:4,vars:{key:`"${key}"`,'groups[key]':`[${groups[key].join(', ')}]`},pointers:[{idx:i,label:'word',color:'amber'}],cellColors:{...groupColorFor(keyColor,groups,arr),[i]:keyColor[key]},arrOverride:[...arr],msg:`Add "${word}" into the bucket for key "${key}". That bucket now holds: [${groups[key].join(', ')}]`});
+  }
+
+  steps.push({line:6,vars:{groupCount:Object.keys(groups).length,groups:fmtGroups()},pointers:[],cellColors:groupColorFor(keyColor,groups,arr),arrOverride:[...arr],msg:`Done. ${Object.keys(groups).length} anagram groups formed: ${fmtGroups()}`});
+
   return {steps,code,arr,structureType:'array'};
 }
 
@@ -1823,6 +2108,78 @@ const PATTERNS_DB = {
   ]
 },
 
+"Stack||Nearest Element||Next Smaller": {
+  build: buildNextSmaller,
+  problem: "For every element, find the next element to its right that is strictly smaller.",
+  concept: "Walk left to right, keeping a stack of indices whose 'next smaller' hasn't been found yet. Whenever the current element is smaller than the value at the top of the stack, that top element has just found its answer — pop it and record the current value. Push the current index and keep going, the mirror image of the next-greater search.",
+  keywords: ["next smaller element","daily temperatures (inverted)","monotonic stack","stack of indices","stock span variant"],
+  questions: ["Do I need, for each element, the nearest SMALLER element to its right, not the nearest greater one?","Would a naive check require an O(n²) nested scan for every element, looking rightward for the first drop?","Can I maintain a stack that only ever pops when a strictly smaller value shows up?"],
+  eli10: "Picture people in a line, all facing right, each looking for the first shorter person ahead of them. As a new, short person joins the back of the line, every taller person in front who's now 'answered' (because they finally found someone shorter) turns around and steps out of the waiting line — everyone still waiting on the stack must be getting progressively shorter from bottom to top.",
+  pitfalls: ["Flipping the comparison the wrong way — popping while the top is SMALLER than the current element finds the next GREATER element instead; next smaller pops while the top is GREATER.","Looking for the nearest smaller element on the left instead of the right — that needs the array (or the pop condition) scanned/read differently, and is a distinct pattern (previous smaller).","Confusing values and indices on the stack — push indices so you can compute distances or write directly into a result array by position."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Every index is pushed once and popped at most once — amortized O(1) per element, despite the nested-looking while loop.",
+  memoryStack:["i (int)","popped (int)"],
+  memoryHeap:"A Deque<Integer> stack of indices, plus a result[] array of size n.",
+  comparison:[
+    {name:"Next Greater (Nearest Element)", diff:"Next Greater pops while the stack's top value is SMALLER than the current element; Next Smaller pops while the stack's top value is GREATER — the comparison direction is the only thing that flips."},
+    {name:"Increasing Monotonic Stack", diff:"The general 'increasing monotonic stack' technique is exactly this same mechanism; Next Smaller is that technique applied as a standalone nearest-element pattern with its own dedicated problem framing."}
+  ],
+  tips: ["If a problem says 'next smaller element' or is the mirror of 'next greater element', just flip the pop comparison from < to > and everything else stays identical.","Decide up front whether you're scanning for the nearest match to the LEFT or to the RIGHT — that decides whether you iterate forward or need a right-to-left scan.","Push indices, not values — you almost always need the position to compute a distance or fill in a result array at the correct slot."],
+  flash: [
+    {q:"What triggers a pop in the Next Smaller pattern?", a:"When the current element is smaller than the value at the index on top of the stack."},
+    {q:"How does Next Smaller relate to Next Greater?", a:"They're mirror images — only the comparison direction in the while loop's condition changes, from < to >."},
+    {q:"Time / space complexity?", a:"O(n) time (amortized — each index pushed and popped at most once), O(n) space for the stack and result array."}
+  ]
+},
+
+"Stack||Monotonic Stack||Increasing": {
+  build: buildIncreasingStackNextSmaller,
+  problem: "For every element, find the next element to its right that is strictly smaller (Next Smaller Element).",
+  concept: "Walk left to right, keeping a stack of indices whose 'next smaller' hasn't been found yet. Because entries only ever get pushed after every bigger value ahead of them has already been popped off, the stack's values always increase from bottom to top — that's the 'increasing' invariant this pattern is named for. Whenever the current element is smaller than the value at the top of the stack, that top element has just found its answer — pop it and record the current value — and keep popping until the top is smaller than (or the stack is empty), then push the current index.",
+  keywords: ["increasing monotonic stack","next smaller element","stack stays increasing","pop while greater","largest rectangle setup"],
+  questions: ["Do I need, for each element, the nearest smaller element to its left/right?","Can I keep a stack whose values are always increasing from bottom to top by popping anything bigger than the current element first?","Would a naive nested scan for 'next smaller' be an O(n²) brute force I can collapse to O(n)?"],
+  eli10: "Picture a line of people facing right, each waiting to find the first person ahead of them who's shorter. Every time someone new and short arrives, everyone taller standing right in front of them in the waiting line immediately gets their answer and steps out — because they now know the height of the first shorter person ahead of them. Whoever's left waiting in line is always arranged shortest-to-tallest from the front of the line to the back, which is exactly why the stack stays 'increasing'.",
+  pitfalls: ["Using the wrong comparison direction — popping on '<' instead of '>' turns this into a next-GREATER search (a decreasing stack) instead of next-smaller (increasing stack).","Assuming 'increasing' describes the order elements are scanned in — it actually describes the order of values remaining on the stack at any moment, bottom to top.","Forgetting this is the exact setup step used inside 'Largest Rectangle in Histogram' — an increasing stack is what finds, for each bar, how far it can extend before hitting something shorter."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Every index is pushed once and popped at most once — amortized O(1) per element, despite the nested-looking while loop.",
+  memoryStack:["i (int)","popped (int)"],
+  memoryHeap:"A Deque<Integer> stack of indices (kept increasing in value bottom-to-top), plus a result[] array of size n.",
+  comparison:[
+    {name:"Decreasing Monotonic Stack (Next Greater)", diff:"A decreasing stack pops anything smaller than the current element to find the next GREATER element; an increasing stack pops anything bigger to find the next SMALLER element — the comparison direction is flipped."},
+    {name:"Min/Max Stack", diff:"Min/Max stack tracks a running minimum or maximum over time as elements are pushed and popped by the caller; an increasing monotonic stack instead self-maintains its own order by popping during a single forward scan."}
+  ],
+  tips: ["Say the invariant out loud before coding: 'the stack's values increase from bottom to top' — then the pop condition (> current) falls right out of that sentence.","'Next smaller element' or 'previous smaller element' in a problem statement is the strongest signal for an increasing monotonic stack.","This exact pattern is the first step of Largest Rectangle in Histogram — recognizing 'increasing stack' here makes that much harder problem far more approachable later."],
+  flash: [
+    {q:"What invariant does an increasing monotonic stack maintain?", a:"Its values increase from bottom to top — smaller values sit below bigger ones."},
+    {q:"What comparison triggers a pop here?", a:"Popping happens while the top of the stack is GREATER than the current element — that's what finds each popped index's next smaller element."},
+    {q:"Time / space complexity?", a:"O(n) time (amortized — each index pushed and popped at most once), O(n) space for the stack and result array."}
+  ]
+},
+
+"Stack||Monotonic Stack||Decreasing": {
+  build: buildDecreasingStackPreviousGreater,
+  problem: "For every element, find the nearest element to its LEFT that is strictly greater (Previous Greater Element).",
+  concept: "Walk left to right, keeping a stack of indices whose values decrease from bottom to top — that's the 'decreasing' invariant this pattern is named for. Before deciding the current element's answer, pop off everything on top of the stack that is <= the current value, since a smaller-or-equal earlier value can never be the previous-greater answer for anything further along once a bigger, closer value exists. Whatever remains on top of the stack (if anything) is exactly the current element's nearest greater value to the left; then push the current index so it can serve as an answer for later elements.",
+  keywords: ["decreasing monotonic stack","previous greater element","stack stays decreasing","pop while less or equal","nearest greater to the left"],
+  questions: ["Do I need, for each element, the nearest GREATER element to its LEFT, rather than to its right?","Can I keep a stack whose values decrease from bottom to top, so the top is always the closest still-valid candidate?","Would a naive nested scan looking backward from every element be an O(n²) brute force I can collapse to O(n)?"],
+  eli10: "Picture a line of people facing right, and each person wants to know the height of the first taller person standing somewhere behind them (to their left). As people join the line one at a time from the left, anyone already in line who is shorter than or the same height as the new arrival can be forgotten immediately — the new, closer person will always be found first by anyone still to come, so the old, weaker candidate is useless. Whoever remains waiting in line is always arranged tallest at the back down to shortest at the front, which is exactly why the stack stays 'decreasing'.",
+  pitfalls: ["Popping on '<' instead of '<=' — if the previous element is EQUAL to the current one, it should still be popped, since a later element needs the closer, at-least-as-big candidate, not a strictly bigger one further away.","Confusing this with the 'Increasing' stack pattern — that one scans for the next smaller element to the RIGHT; this one scans for the previous greater element to the LEFT, so both the comparison and the direction of 'nearest' are flipped.","Reading the answer off the stack AFTER pushing the current index instead of BEFORE — the current element itself must never be treated as its own previous greater element."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Every index is pushed once and popped at most once across the entire scan — amortized O(1) per element, despite the nested-looking while loop.",
+  memoryStack:["i (int)","popped (int)"],
+  memoryHeap:"A Deque<Integer> stack of indices (kept decreasing in value bottom-to-top), plus a result[] array of size n.",
+  comparison:[
+    {name:"Increasing Monotonic Stack (Next Smaller)", diff:"An increasing stack pops anything bigger than the current element to find the next SMALLER element to the RIGHT; a decreasing stack pops anything smaller-or-equal to find the PREVIOUS GREATER element to the LEFT — both the pop comparison and the scan direction are flipped."},
+    {name:"Next Greater (Nearest Element)", diff:"Next Greater also uses a stack and looks for 'greater', but it answers for elements to the RIGHT by popping them retroactively as bigger values arrive; Decreasing answers immediately for the current element by looking at what's already survived on the stack to its LEFT."}
+  ],
+  tips: ["Say the invariant out loud before coding: 'the stack's values decrease from bottom to top' — then the pop condition (<= current) falls right out of that sentence.","'Previous greater element' or 'nearest greater to the left' in a problem statement is the strongest signal for a decreasing monotonic stack.","Always read off the answer from the stack's new top BEFORE pushing the current index — otherwise the element would incorrectly see itself as its own answer."],
+  flash: [
+    {q:"What invariant does a decreasing monotonic stack maintain?", a:"Its values decrease from bottom to top — bigger values sit below smaller ones."},
+    {q:"What comparison triggers a pop here?", a:"Popping happens while the top of the stack is LESS THAN OR EQUAL TO the current element — those values can never be a previous-greater answer for anything later."},
+    {q:"Time / space complexity?", a:"O(n) time (amortized — each index pushed and popped at most once), O(n) space for the stack and result array."}
+  ]
+},
+
 "Dynamic Programming||State||1D": {
   build: buildClimbingStairs,
   problem: "Count the number of distinct ways to climb n stairs, taking 1 or 2 steps at a time.",
@@ -1985,7 +2342,7 @@ const PATTERNS_DB = {
   ],
   tips: ["'Compress consecutive repeated characters in place' is the strongest signal for a read/write pointer pair built around run-length counting.","Always ask: does this run have length 1? If so, skip the digit-writing step entirely — that's the detail most first attempts miss.","write's final value is exactly the answer (the new length) — no separate counter is needed, it falls out of the pointer walk naturally."],
   flash: [
-    {q:"What does 'write' track?", a:"The next position in the array where compressed output should be placed — it only advances when something is actually written."},
+    {q:"What does 'write' track?", a:"The next position in the array where compressed output should be placed — it only advances when something is actually written there."},
     {q:"When is a run's count NOT written as digits?", a:"When the run's length is exactly 1 — a lone character needs no digit suffix."},
     {q:"Time / space complexity?", a:"O(n) time — read visits every character once across all runs; O(1) extra space since the array is compressed in place."}
   ]
@@ -2036,6 +2393,30 @@ const PATTERNS_DB = {
     {q:"Why is a hash match not immediately trusted as a real match?", a:"Two different substrings can occasionally produce the same hash — a collision — so the actual characters must be compared to confirm it."},
     {q:"What lets the hash update happen in O(1) per slide?", a:"The rolling hash formula removes the outgoing character's contribution (using precomputed h = base^(m-1) mod mod) and adds the incoming character's, without rehashing the whole window."},
     {q:"Average vs worst-case time complexity?", a:"O(n + m) on average; degrades to O(n·m) in the worst case if hash collisions are frequent, since each one triggers an O(m) verification."}
+  ]
+},
+
+"String||Pattern Matching||Z-Algorithm": {
+  build: buildZAlgorithm,
+  problem: "Search for every occurrence of a pattern inside a text using a single precomputed array, with no hashing and no backtracking.",
+  concept: "Concatenate pattern + separator + text into one combined string, and compute its Z-array, where z[i] is the length of the longest substring starting at i that also matches the string's own prefix. While computing z[i], reuse a 'Z-box' [l, r) — the rightmost window discovered so far that's known to match the prefix — so that when i falls inside it, z[i] can start from a value already known (min(r-i, z[i-l])) instead of comparing from scratch. Wherever z[i] equals the pattern's length, a match has been found in the text at that position.",
+  keywords: ["z-algorithm","z-array","z-box","longest common prefix","substring search","pattern$text","linear pattern matching"],
+  questions: ["Do I need every occurrence of a pattern inside a text, and would repeatedly comparing prefixes from scratch be wasteful?","Can I reuse a previously discovered matching window (the Z-box) to skip character comparisons that are already known?","Would I rather avoid hashing altogether and get an answer purely from prefix-matching structure?"],
+  eli10: "Imagine gluing your pattern, a special separator you'll never see naturally, and the text into one long strip of paper. For every starting point along that strip, you want to know: how far does what starts here match what's written at the very beginning of the strip? Once you've discovered a matching stretch that reaches unusually far to the right, you remember exactly where it reaches — so that for the next starting point still inside that stretch, you already know a head start on the answer instead of comparing letter by letter from zero.",
+  pitfalls: ["Choosing a separator character that could actually appear in the pattern or text — that silently corrupts the Z-array, since the separator must be guaranteed unique.","Forgetting to bound z[i] by r - i when reusing the Z-box — using z[i-l] directly without the min() can overshoot past where verification has actually happened, requiring the while loop to still confirm rather than blindly trust the reused value.","Off-by-one errors when translating a Z-array match index back into the original text's index — remember to subtract both the pattern length and the separator (m + 1) to recover the true text position."],
+  complexityTime:"O(n + m)", complexitySpace:"O(n + m)", complexityScale:1,
+  complexityNote:"The combined string has length n + m + 1; the Z-box invariant guarantees the inner while loop's total work across all iterations is bounded by the string's length, so the whole array is built in one linear pass.",
+  memoryStack:["i (int)","l, r (int, the current Z-box)","zi (int, local Z-value being computed)"],
+  memoryHeap:"An int[] z array of length n (the combined string's length), plus the concatenated pattern+separator+text character array.",
+  comparison:[
+    {name:"KMP (Failure Function)", diff:"KMP precomputes self-overlap of the pattern alone (a prefix that's also a suffix) and scans the text separately; the Z-algorithm instead builds one array over pattern+separator+text together, where matches show up directly as z[i] == pattern length."},
+    {name:"Rabin–Karp (Rolling Hash)", diff:"Rabin–Karp fingerprints windows with a hash and risks collisions needing verification; the Z-algorithm is exact by construction — every z[i] value is a real, verified prefix-match length, with no probabilistic component."}
+  ],
+  tips: ["'Search for a pattern with no hashing and no backtracking' or 'find all occurrences with a single precomputed array' both point to the Z-algorithm.","Always pick a separator guaranteed not to appear in either string — a character outside the expected alphabet, like '$' for lowercase text.","The Z-box (l, r) is the entire optimization — say its purpose out loud: 'the rightmost window known to match the prefix, so far' — before writing the min(r-i, z[i-l]) line."],
+  flash: [
+    {q:"What does z[i] represent?", a:"The length of the longest substring starting at position i that also matches a prefix of the combined string."},
+    {q:"What is the Z-box, and why does it matter?", a:"The window [l, r) — the rightmost match with the prefix found so far — letting z[i] for positions inside it start from already-known information instead of comparing from scratch."},
+    {q:"How is a text match identified?", a:"Any position i (after the pattern and separator) where z[i] equals the pattern's length marks a full match, starting in the text at index i - m - 1."}
   ]
 },
 
@@ -2108,6 +2489,54 @@ const PATTERNS_DB = {
     {q:"What single check keeps this pattern O(n) instead of O(n²)?", a:"Only expanding a run from numbers where num - 1 is NOT in the set — that guarantees every run is walked exactly once, from its true start."},
     {q:"Why a HashSet instead of a HashMap here?", a:"The pattern only ever needs to know whether a value exists, never a count or an index — a plain set is the right tool for pure membership checks."},
     {q:"Time / space complexity?", a:"O(n) time — each number is inserted once and each run is walked once in total; O(n) space for the hash set."}
+  ]
+},
+
+"Hash Map||Core Uses||Index Mapping": {
+  build: buildIndexMapping,
+  problem: "Given an unsorted integer array, find the smallest missing positive integer, using only O(1) extra space.",
+  concept: "Instead of a separate hash map or set, use the array itself as the hash table: every valid value v (where 1 <= v <= n) has a natural 'home' at index v-1. Walk through the array and, for each position, keep swapping its value into that home index until either the value is out of range or already correctly placed. Once every value that can be placed is placed, a second pass finds the first index i where arr[i] != i+1 — that gap is exactly the smallest missing positive.",
+  keywords: ["index as hash","first missing positive","in-place hashing","value to index mapping","cyclic placement"],
+  questions: ["Do I need O(1) extra space, ruling out a separate hash set or hash map?","Are the values naturally bounded by the array's own size (e.g. between 1 and n), so each one has an obvious 'correct' index?","Can I use the array's own indices as buckets, placing each value at index (value - 1) instead of allocating another structure?"],
+  eli10: "Imagine n numbered coat hooks in a hallway, and a pile of coats with numbers on them scattered on the floor in the wrong order. Instead of grabbing a separate rack to sort them, you just walk down the hooks one at a time and hang each coat you're holding on its own matching hook, swapping with whatever's already there until you're holding a coat that either has nowhere valid to hang or is already on the right hook. Afterward, you walk the hooks once more — the first empty or wrong hook you find tells you exactly which coat number is missing.",
+  pitfalls: ["Using a while loop but forgetting the arr[arr[i]-1] != arr[i] check — without it, two equal values or values already in place cause an infinite swapping loop.","Forgetting to bound-check (1 <= value <= n) before using a value as an index — values outside that range (negatives, zeros, or numbers bigger than n) can never be 'correctly placed' and must be skipped, not indexed into.","Reaching for a HashSet as the first instinct — it solves the problem correctly but costs O(n) extra space; the whole point of index mapping is reusing the input array itself as the hash table."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Each value is swapped into its correct home at most once across the entire outer loop — even though there's a nested while loop, every swap places at least one more value correctly, so total swaps are bounded by n, keeping the whole placement pass linear.",
+  memoryStack:["i (int)","correctIdx (int)","temp (int)"],
+  memoryHeap:"The input array arr[] itself, reused in place as the hash table — no separate set, map, or auxiliary array is allocated.",
+  comparison:[
+    {name:"Set Based (Longest Consecutive Sequence)", diff:"Set-based lookups allocate a real HashSet to get O(1) membership checks at the cost of O(n) space; index mapping achieves the same kind of O(1) 'does this exist / is this placed' check by repurposing the array's own indices, at O(1) extra space."},
+    {name:"Lookup Based (Two Sum)", diff:"Two Sum's hash map stores value → index for arbitrary, unbounded values; index mapping only works because the values here are naturally bounded by the array's size, letting the array double as its own map."}
+  ],
+  tips: ["Whenever a problem promises O(1) extra space AND the values are bounded by the array's own length (like 1..n), think 'can the array be its own hash table?'","The swap condition is the whole trick — say it out loud: 'keep swapping while my value belongs somewhere else, and that other slot doesn't already have it.'","This exact 'place each value at index value-1' idea also solves 'find all duplicates in an array' and 'find the corrupted pair (duplicate and missing)' with the same one swap loop."],
+  flash: [
+    {q:"What index does value v naturally belong at?", a:"Index v - 1 — that's the core mapping this pattern relies on."},
+    {q:"Why check arr[arr[i]-1] != arr[i] before swapping?", a:"To avoid an infinite loop — once a value is already sitting in its correct home (or a duplicate blocks it), swapping again would just repeat forever."},
+    {q:"Time / space complexity?", a:"O(n) time — every value is swapped into place at most once overall; O(1) space, since the input array itself is reused as the hash table."}
+  ]
+},
+
+"Hash Map||Core Uses||Grouping Pattern": {
+  build: buildGroupingPattern,
+  problem: "Given a list of strings, group all the anagrams together (e.g. \"eat\", \"tea\", \"ate\" all belong in one group).",
+  concept: "Every anagram of a word shares the exact same multiset of letters, so sorting a word's own letters produces a signature that is identical for every anagram of it and different for anything that isn't. Use that signature as a hash map key: for each word, compute its sorted-letters key, then append the word to the list already stored under that key (creating a fresh list the first time the key is seen). Words that hash to the same key are, by construction, anagrams of each other.",
+  keywords: ["group anagrams","grouping pattern","hash map to list","signature key","bucket by key","categorize by property"],
+  questions: ["Do I need to bucket multiple items together based on some shared property, rather than looking up a single value?","Can I compute a canonical signature/key from each item such that two items belong together exactly when their keys match?","Am I building a Map<Key, List<Item>> rather than a Map<Key, Value>?"],
+  eli10: "Imagine a big box of Scrabble tiles spelling out lots of different words, and you want to put every word that uses the exact same letters into the same pile. For each word, you first rearrange its own letters into alphabetical order — 'tea' and 'eat' and 'ate' all become 'aet' once sorted. Then you just look for the pile already labeled 'aet' and drop the word in; if no such pile exists yet, you start a new one. Words that scramble into the same label always end up in the same pile.",
+  pitfalls: ["Using the unsorted word itself as the key — that would give every word its own group instead of merging true anagrams together.","Sorting the whole array of words instead of sorting each word's own letters — those are two completely different operations, and only the latter produces a valid grouping key.","Choosing a key that isn't a true canonical form — e.g. using letter counts formatted inconsistently between words can accidentally give two anagrams different-looking keys."],
+  complexityTime:"O(n · k log k)", complexitySpace:"O(n · k)", complexityScale:2,
+  complexityNote:"For n words of average length k, each word's letters are sorted in O(k log k), done once per word — so total time is O(n · k log k). All words are stored in the map, so space is O(n · k).",
+  memoryStack:["i (int)","word (String)","key (String)"],
+  memoryHeap:"A Map<String, List<String>> groups, where each key's list holds every word that shares that sorted-letters signature.",
+  comparison:[
+    {name:"Frequency Based (First Unique Character)", diff:"Frequency counting maps a single key to a single running count; grouping maps a key to an entire growing collection of items that share it."},
+    {name:"Lookup Based (Two Sum)", diff:"Lookup-based hashing checks for one specific complementary value and stops; grouping never 'looks up a partner' — it just keeps appending every matching item into the same bucket for the whole pass."}
+  ],
+  tips: ["Whenever a problem says 'group items by some shared property' — anagrams, same remainder mod k, same rounded value — think Map<computedKey, List<item>>.","The key is doing all the work: spend your first minute deciding exactly what canonical signature makes two items 'the same' before writing any loop.","This pattern is really 'lookup based' hashing's sibling — instead of mapping a key to a single value, you map a key to a list, and every match appends rather than replaces."],
+  flash: [
+    {q:"What makes two words land in the same group here?", a:"Their letters, once sorted, produce the exact same signature string."},
+    {q:"What does the hash map store — a value or a collection?", a:"A collection — Map<String, List<String>>, since many words can share one key."},
+    {q:"Time complexity for n words of average length k?", a:"O(n · k log k) — each word's letters are sorted once, in O(k log k), across n words."}
   ]
 }
 
