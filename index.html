@@ -251,7 +251,7 @@
     <section id="home">
       <div class="hero-eyebrow">// 16 categories · one language · zero shortcuts</div>
       <h2>Every DSA pattern, <span>mapped</span> — a first batch fully <span>built</span>.</h2>
-      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>23 patterns</code> spanning arrays, strings, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
+      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>27 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
 
       <div class="stat-row" id="stat-row"></div>
 
@@ -271,7 +271,7 @@
     </section>
   </div>
 
-  <footer>// end of file · wave 7: 23/95 patterns fully built · rest follow the same engine on request</footer>
+  <footer>// end of file · wave 9: 27/95 patterns fully built · rest follow the same engine on request</footer>
 </main>
 
 <script>
@@ -1263,6 +1263,204 @@ function buildKMP(){
   return {steps,code,arr:textDisplay,structureType:'array'};
 }
 
+/* ===================== PATTERN 24: String Pattern Matching – Rabin–Karp (Rolling Hash) ===================== */
+function buildRabinKarp(){
+  const patStr = "aba";
+  const textStr = "ababcaba";
+  const pat = patStr.split('');
+  const text = textStr.split('');
+  const base = 27, mod = 13;
+  const m = pat.length, n = text.length;
+  function code(c){ return c.charCodeAt(0) - 96; } // 'a' -> 1, 'b' -> 2, ...
+
+  const codeLines=[
+"int base = 27, mod = 13;",
+"int m = pat.length(), n = text.length();",
+"int patHash = 0, textHash = 0, h = 1;",
+"for (int i = 0; i < m - 1; i++) h = (h * base) % mod;",
+"for (int i = 0; i < m; i++) {",
+"    patHash = (base * patHash + code(pat.charAt(i))) % mod;",
+"    textHash = (base * textHash + code(text.charAt(i))) % mod;",
+"}",
+"for (int i = 0; i <= n - m; i++) {",
+"    if (patHash == textHash) {",
+"        if (text.substring(i, i + m).equals(pat)) {",
+"            matches.add(i);",
+"        }",
+"    }",
+"    if (i < n - m) {",
+"        textHash = (base * (textHash - code(text.charAt(i)) * h) + code(text.charAt(i + m))) % mod;",
+"        if (textHash < 0) textHash += mod;",
+"    }",
+"}"];
+
+  const steps=[];
+  steps.push({line:0,vars:{base,mod},pointers:[],cellColors:{},arrOverride:[...text],msg:'Pick a base and a modulus for the rolling hash — every window\u2019s hash will be computed mod this value, keeping numbers small and comparisons O(1).'});
+  steps.push({line:1,vars:{m,n},pointers:[],cellColors:{},arrOverride:[...text],msg:`Pattern length m = ${m}, text length n = ${n}.`});
+
+  let patHash=0, textHash=0, h=1;
+  steps.push({line:2,vars:{patHash,textHash,h},pointers:[],cellColors:{},arrOverride:[...text],msg:'Start both hashes at 0. h will become base^(m-1) mod mod — the exact value needed to "peel off" the leftmost character when the window slides.'});
+
+  for(let idx=0; idx<m-1; idx++){
+    h=(h*base)%mod;
+    steps.push({line:3,vars:{i:idx,h},pointers:[],cellColors:{},arrOverride:[...text],msg:`h = (h * base) % mod = ${h} — after ${idx+1} multiplication${idx+1>1?'s':''}.`});
+  }
+
+  steps.push({line:4,vars:{},pointers:[],cellColors:{},arrOverride:[...text],msg:`Compute the pattern's hash and the hash of the very first window of the text (both length ${m}), one character at a time.`});
+  for(let idx=0; idx<m; idx++){
+    patHash=(base*patHash+code(pat[idx]))%mod;
+    steps.push({line:5,vars:{i:idx,'pat[i]':pat[idx],patHash},pointers:[{idx:idx,label:'i',color:'violet'}],cellColors:{},arrOverride:[...text],msg:`patHash = (base*patHash + code('${pat[idx]}')) % mod = ${patHash}`});
+    textHash=(base*textHash+code(text[idx]))%mod;
+    steps.push({line:6,vars:{i:idx,'text[i]':text[idx],textHash},pointers:[{idx:idx,label:'i',color:'teal'}],cellColors:{[idx]:'teal'},arrOverride:[...text],msg:`textHash = (base*textHash + code('${text[idx]}')) % mod = ${textHash}`});
+  }
+
+  steps.push({line:8,vars:{patHash},pointers:[],cellColors:rangeColor(0,m-1,'teal'),arrOverride:[...text],msg:`Both starting hashes are ready — patHash = ${patHash}. Now slide a window of size ${m} across the text, comparing hashes before ever comparing characters.`});
+
+  const matches=[];
+  for(let idx=0; idx<=n-m; idx++){
+    steps.push({line:8,vars:{i:idx},pointers:[{idx:idx,label:'i',color:'amber'}],cellColors:rangeColor(idx,idx+m-1,'amber'),arrOverride:[...text],msg:`Loop while i <= n - m. Current window is text[${idx}..${idx+m-1}].`});
+    const hashesMatch = patHash===textHash;
+    steps.push({line:9,vars:{patHash,textHash},pointers:[{idx:idx,label:'i',color:'amber'}],cellColors:rangeColor(idx,idx+m-1, hashesMatch?'teal':'rose'),arrOverride:[...text],msg: hashesMatch? `Hashes match (${patHash} == ${textHash}) — this window MIGHT be the pattern, but hashes can collide, so it still needs verifying character by character.` : `Hashes differ (${patHash} vs ${textHash}) — this window cannot possibly match, so the O(m) string comparison is skipped entirely.`});
+    if(hashesMatch){
+      const windowStr = text.slice(idx,idx+m).join('');
+      const realMatch = windowStr===patStr;
+      steps.push({line:10,vars:{window:`"${windowStr}"`,pattern:`"${patStr}"`},pointers:[{idx:idx,label:'i',color:'amber'}],cellColors:rangeColor(idx,idx+m-1, realMatch?'violet':'rose'),arrOverride:[...text],msg: realMatch? `Character-by-character check confirms a genuine match at index ${idx}.` : `The hashes collided but the actual characters differ — a false positive, correctly caught by verification.`});
+      if(realMatch){
+        matches.push(idx);
+        steps.push({line:11,vars:{matchIndex:idx},pointers:[{idx:idx,label:'\u2713',color:'violet'}],cellColors:rangeColor(idx,idx+m-1,'violet'),arrOverride:[...text],msg:`Match recorded at index ${idx}.`});
+      }
+    }
+    if(idx<n-m){
+      steps.push({line:14,vars:{i:idx},pointers:[{idx:idx,label:'out',color:'rose'},{idx:idx+m,label:'in',color:'teal'}],cellColors:{[idx]:'rose',[idx+m]:'teal'},arrOverride:[...text],msg:`Window still has room to slide — remove '${text[idx]}' from the front, bring in '${text[idx+m]}' at the back.`});
+      let raw = (base*(textHash - code(text[idx])*h) + code(text[idx+m])) % mod;
+      steps.push({line:15,vars:{'dropped char':text[idx],'entering char':text[idx+m],textHash:raw},pointers:[{idx:idx,label:'out',color:'rose'},{idx:idx+m,label:'in',color:'teal'}],cellColors:{[idx]:'rose',[idx+m]:'teal'},arrOverride:[...text],msg:`textHash = (base*(textHash - code('${text[idx]}')*h) + code('${text[idx+m]}')) % mod = ${raw} — computed in O(1), no need to re-hash the whole window.`});
+      if(raw<0){
+        const before=raw;
+        raw+=mod;
+        steps.push({line:16,vars:{textHash:raw},pointers:[{idx:idx+m,label:'in',color:'teal'}],cellColors:{},arrOverride:[...text],msg:`textHash came out negative (${before}) from the subtraction under modulo — add mod back to normalize it: textHash = ${raw}.`});
+      }
+      textHash=raw;
+    }
+  }
+
+  steps.push({line:18,vars:{matches:`[${matches.join(', ')}]`},pointers:[],cellColors:{},arrOverride:[...text],msg:`Done. Pattern "${patStr}" found at index ${matches.length?matches.join(', '):'nowhere'} in "${textStr}" — each slide cost O(1), with full verification only paid when a hash actually matched.`});
+
+  return {steps,code:codeLines,arr:text,structureType:'array'};
+}
+
+/* ===================== PATTERN 25: Hash Map – Frequency Based (First Unique Character) ===================== */
+function buildFirstUniqueChar(){
+  const s = "loveleetcode";
+  const arr = s.split('');
+  const code=[
+"Map<Character, Integer> freq = new HashMap<>();",
+"for (char c : s.toCharArray()) {",
+"    freq.merge(c, 1, Integer::sum);",
+"}",
+"for (int i = 0; i < s.length(); i++) {",
+"    if (freq.get(s.charAt(i)) == 1) {",
+"        return i;",
+"    }",
+"}",
+"return -1;"];
+  const fmtMap=(m)=>'{'+Object.entries(m).map(([k,v])=>`${k}:${v}`).join(', ')+'}';
+  const freq={};
+  const steps=[];
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},msg:'freq will count how many times each character appears in the string — build it with one full pass first.'});
+  for(let i=0;i<arr.length;i++){
+    const c=arr[i];
+    freq[c]=(freq[c]||0)+1;
+    steps.push({line:2,vars:{i,c,freq:fmtMap(freq)},pointers:[{idx:i,label:'i',color:'teal'}],cellColors:{[i]:'teal'},msg:`Count '${c}': freq = ${fmtMap(freq)}`});
+  }
+  steps.push({line:4,vars:{freq:fmtMap(freq)},pointers:[],cellColors:{},msg:'Frequency map is complete. Now scan the string again, in order, looking for the first character whose count is exactly 1.'});
+  for(let i=0;i<arr.length;i++){
+    const c=arr[i];
+    const isUnique = freq[c]===1;
+    steps.push({line:5,vars:{i,c,'freq[c]':freq[c]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]: isUnique?'violet':'rose'},msg: isUnique? `freq['${c}'] = 1 — '${c}' at index ${i} is the first unique character.` : `freq['${c}'] = ${freq[c]} — '${c}' repeats, keep scanning.`});
+    if(isUnique){
+      steps.push({line:6,vars:{result:i},pointers:[{idx:i,label:'\u2713',color:'violet'}],cellColors:{[i]:'violet'},msg:`Done. The first non-repeating character is '${c}' at index ${i}.`});
+      return {steps,code,arr,structureType:'array'};
+    }
+  }
+  steps.push({line:9,vars:{result:-1},pointers:[],cellColors:{},msg:'Done scanning — every character repeats, so there is no unique character.'});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 26: Hash Map – Lookup Based (Two Sum) ===================== */
+function buildTwoSumLookup(){
+  const arr=[2,7,11,15], target=9;
+  const code=[
+"Map<Integer, Integer> seen = new HashMap<>();",
+"for (int i = 0; i < nums.length; i++) {",
+"    int complement = target - nums[i];",
+"    if (seen.containsKey(complement)) {",
+"        return new int[]{seen.get(complement), i};",
+"    }",
+"    seen.put(nums[i], i);",
+"}",
+"return new int[]{-1, -1};"];
+  const fmtMap=(m)=>'{'+Object.entries(m).map(([k,v])=>`${k}:${v}`).join(', ')+'}';
+  const seen={};
+  const steps=[];
+  steps.push({line:0,vars:{target},pointers:[],cellColors:{},msg:'seen will map each value already visited to its index, so a partner can be looked up in O(1) instead of scanning the rest of the array again.'});
+  for(let i=0;i<arr.length;i++){
+    const complement=target-arr[i];
+    steps.push({line:2,vars:{i,'nums[i]':arr[i],complement},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]:'amber'},msg:`complement = target - nums[${i}] = ${target} - ${arr[i]} = ${complement} — does 'seen' already contain this value?`});
+    if(seen[complement]!==undefined){
+      steps.push({line:4,vars:{complement,'seen[complement]':seen[complement],i},pointers:[{idx:seen[complement],label:'match',color:'violet'},{idx:i,label:'i',color:'amber'}],cellColors:{[seen[complement]]:'violet',[i]:'violet'},msg:`Found it — seen[${complement}] = ${seen[complement]}. Pair found at indices [${seen[complement]}, ${i}].`});
+      return {steps,code,arr,structureType:'array'};
+    }
+    seen[arr[i]]=i;
+    steps.push({line:6,vars:{'nums[i]':arr[i],i,seen:fmtMap(seen)},pointers:[{idx:i,label:'i',color:'teal'}],cellColors:{[i]:'teal'},msg:`Not found yet — record it so a later element can find ${arr[i]} as its complement. seen = ${fmtMap(seen)}`});
+  }
+  steps.push({line:8,vars:{},pointers:[],cellColors:{},msg:'Done scanning — no pair adds up to the target.'});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 27: Hash Map – Set Based (Longest Consecutive Sequence) ===================== */
+function buildLongestConsecutiveSet(){
+  const arr=[100,4,200,1,3,2];
+  const code=[
+"Set<Integer> numSet = new HashSet<>();",
+"for (int num : nums) numSet.add(num);",
+"int longest = 0;",
+"for (int num : nums) {",
+"    if (!numSet.contains(num - 1)) {",
+"        int length = 1;",
+"        while (numSet.contains(num + length)) {",
+"            length++;",
+"        }",
+"        longest = Math.max(longest, length);",
+"    }",
+"}",
+"return longest;"];
+  const fmtSet=(s)=>'{'+Array.from(s).sort((a,b)=>a-b).join(', ')+'}';
+  const numSet=new Set(arr);
+  const steps=[];
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},msg:'Put every number into a hash set first — that turns "does this value exist?" into an O(1) lookup instead of an O(n) scan.'});
+  steps.push({line:1,vars:{numSet:fmtSet(numSet)},pointers:[],cellColors:{},msg:`numSet = ${fmtSet(numSet)} — every value from nums, with duplicates collapsed.`});
+  let longest=0;
+  steps.push({line:2,vars:{longest},pointers:[],cellColors:{},msg:'longest tracks the best run found so far.'});
+  for(let idx=0; idx<arr.length; idx++){
+    const num=arr[idx];
+    const isStart = !numSet.has(num-1);
+    steps.push({line:4,vars:{num,'contains(num-1)':numSet.has(num-1)},pointers:[{idx:idx,label:'num',color:'amber'}],cellColors:{[idx]: isStart?'teal':'rose'},msg: isStart? `numSet does not contain ${num-1} — ${num} is the START of a run, worth expanding.` : `numSet contains ${num-1} — ${num} is NOT a run start, some earlier number already covers it. Skip.`});
+    if(isStart){
+      let length=1;
+      steps.push({line:5,vars:{num,length},pointers:[{idx:idx,label:'num',color:'amber'}],cellColors:{[idx]:'teal'},msg:`Start counting the run from ${num}. length = 1`});
+      while(numSet.has(num+length)){
+        length++;
+        steps.push({line:7,vars:{num,checking:num+length-1,length},pointers:[{idx:idx,label:'num',color:'amber'}],cellColors:{[idx]:'teal'},msg:`numSet contains ${num+length-1} — extend the run. length = ${length}`});
+      }
+      const improved = length>longest;
+      longest=Math.max(longest,length);
+      steps.push({line:9,vars:{length,longest},pointers:[{idx:idx,label:'num',color:'amber'}],cellColors:{[idx]: improved?'violet':'teal'},msg: improved? `New longest run: length ${length} starting at ${num}. longest = ${longest}` : `Run of length ${length} isn't better. longest stays ${longest}`});
+    }
+  }
+  steps.push({line:12,vars:{longest},pointers:[],cellColors:{},msg:`Done. The longest run of consecutive integers has length ${longest}.`});
+  return {steps,code,arr,structureType:'array'};
+}
+
 /* ===================== PATTERNS_DB ===================== */
 const PATTERNS_DB = {
 "Array||Two Pointers||Opposite Ends": {
@@ -1814,6 +2012,30 @@ const PATTERNS_DB = {
     {q:"What does lps[i] represent?", a:"The length of the longest proper prefix of the pattern's first i+1 characters that is also a suffix of that same substring."},
     {q:"On a mismatch during the search, which pointer moves backward — k (text) or j (pattern)?", a:"Neither moves backward in the usual sense — k never backtracks at all; only j falls back, using lps[j-1], which is what keeps the algorithm linear."},
     {q:"Time / space complexity?", a:"O(n + m) time, O(m) space for the lps array, where n is text length and m is pattern length."}
+  ]
+},
+
+"String||Pattern Matching||Rabin–Karp (Rolling Hash)": {
+  build: buildRabinKarp,
+  problem: "Search for every occurrence of a pattern inside a text using a hash-based fingerprint instead of comparing characters at every position.",
+  concept: "Compute a rolling hash for the pattern once, and for the very first window of the text. Then slide the window across the text one character at a time, updating the hash in O(1) by subtracting out the outgoing character's contribution and adding in the incoming character's — never re-hashing the whole window from scratch. Whenever a window's hash matches the pattern's hash, verify with an actual character-by-character comparison, since two different strings can occasionally share the same hash (a collision), and only a real comparison can rule that out.",
+  keywords: ["rabin-karp","rolling hash","hash collision","polynomial hash","substring search","fingerprint matching"],
+  questions: ["Do I need every occurrence of a pattern inside a text, where hashing a fixed-size window could act as a fast fingerprint?","Can the hash of the next window be derived from the current window's hash in O(1), instead of recomputing it from scratch?","Am I prepared to verify a hash match with a real string comparison, since hash collisions are possible?"],
+  eli10: "Imagine checking a long train of boxcars for one that matches a specific weight, using a scale instead of opening every single boxcar. You weigh the first few cars together, then slide the scale down one car at a time — taking the weight of the car that just left off the reading and adding the weight of the new car that just arrived, without reweighing everything. Whenever the reading matches the weight you're looking for, you still open that boxcar to make sure it's really the right one, since two different combinations of cargo could occasionally weigh the same.",
+  pitfalls: ["Trusting a hash match without verifying the actual characters — different substrings can collide to the same hash, especially with a small modulus, so skipping verification silently produces false positives.","Forgetting to normalize the rolling hash update when it goes negative — subtracting the outgoing character's contribution under a modulus can produce a negative intermediate value in most languages, which needs mod added back.","Choosing a modulus that's too small for the text — more collisions mean more O(m) verifications, which can degrade the average-case performance toward the O(n·m) worst case."],
+  complexityTime:"O(n + m) average, O(n·m) worst case", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Each slide updates the rolling hash in O(1); verification only costs O(m) on an actual hash match, so the average case is linear, but pathological hash collisions can degrade it toward O(n·m), same as naive matching.",
+  memoryStack:["i (int)","patHash, textHash (int)","h (int)"],
+  memoryHeap:"The input text and pattern character arrays — no extra array is needed beyond the rolling hash values themselves.",
+  comparison:[
+    {name:"KMP (Failure Function)", diff:"KMP guarantees O(n+m) worst case using purely structural prefix/suffix information and never re-examines a text character; Rabin–Karp is often simpler to write and generalizes easily to 2D or multiple-pattern search, but can degrade to O(n·m) if hash collisions are frequent, since each one needs a full verification."},
+    {name:"Z-Algorithm", diff:"The Z-array precomputes exact prefix-matching lengths with no hashing or collisions at all; Rabin–Karp trades that certainty for a simpler, more flexible fingerprinting technique that works well even for non-text data like 2D grids or multiple patterns sharing one hash pass."}
+  ],
+  tips: ["Whenever you see 'search for a pattern' combined with 'multiple patterns at once' or 'a 2D grid', Rabin–Karp's hashing idea generalizes more easily than KMP's failure function.","Never skip the verification step after a hash match — treat the hash purely as a fast pre-filter, not as proof of a match.","Precompute h = base^(m-1) mod mod once outside the sliding loop — it's the one fixed value every slide needs to 'peel off' the leftmost character in O(1)."],
+  flash: [
+    {q:"Why is a hash match not immediately trusted as a real match?", a:"Two different substrings can occasionally produce the same hash — a collision — so the actual characters must be compared to confirm it."},
+    {q:"What lets the hash update happen in O(1) per slide?", a:"The rolling hash formula removes the outgoing character's contribution (using precomputed h = base^(m-1) mod mod) and adds the incoming character's, without rehashing the whole window."},
+    {q:"Average vs worst-case time complexity?", a:"O(n + m) on average; degrades to O(n·m) in the worst case if hash collisions are frequent, since each one triggers an O(m) verification."}
   ]
 }
 };
