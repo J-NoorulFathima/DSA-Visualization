@@ -251,7 +251,7 @@
     <section id="home">
       <div class="hero-eyebrow">// 16 categories · one language · zero shortcuts</div>
       <h2>Every DSA pattern, <span>mapped</span> — a first batch fully <span>built</span>.</h2>
-      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>27 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
+      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>28 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
 
       <div class="stat-row" id="stat-row"></div>
 
@@ -271,7 +271,7 @@
     </section>
   </div>
 
-  <footer>// end of file · wave 9: 27/95 patterns fully built · rest follow the same engine on request</footer>
+  <footer>// end of file · wave 10: 28/95 patterns fully built · rest follow the same engine on request</footer>
 </main>
 
 <script>
@@ -2037,7 +2037,32 @@ const PATTERNS_DB = {
     {q:"What lets the hash update happen in O(1) per slide?", a:"The rolling hash formula removes the outgoing character's contribution (using precomputed h = base^(m-1) mod mod) and adds the incoming character's, without rehashing the whole window."},
     {q:"Average vs worst-case time complexity?", a:"O(n + m) on average; degrades to O(n·m) in the worst case if hash collisions are frequent, since each one triggers an O(m) verification."}
   ]
+},
+
+"Hash Map||Core Uses||Frequency Based": {
+  build: buildFirstUniqueChar,
+  problem: "Find the index of the first character in a string that does not repeat anywhere else in the string.",
+  concept: "Build a frequency map counting every character's occurrences in one pass over the whole string. Then scan the string a second time, in its original order, and return the index of the first character whose count is exactly 1 — the frequency map turns 'does this character repeat?' into an O(1) lookup instead of an O(n) rescan for every character.",
+  keywords: ["frequency map","character count","first unique character","two-pass hashmap","occurrence counting"],
+  questions: ["Do I need to know how many times each element appears, not just whether it exists?","Would checking each element's repeat count via a nested scan be an O(n²) brute force?","Does the answer depend on original order, meaning a second ordered pass is needed after counting?"],
+  eli10: "Imagine tallying votes for every letter in a word on a scoreboard first — one full pass just counting. Then you walk through the word again from the very start, in order, and the first letter whose scoreboard tally reads exactly '1' is your answer — you already know every letter's count, so there's no need to search around each time.",
+  pitfalls: ["Doing the count and the 'first unique' check in a single combined pass — a character's final count isn't known until the whole string has been scanned, so counting must fully finish before checking uniqueness.","Iterating over the hash map's own key order to find the 'first' unique character instead of re-scanning the original string — hash map iteration order isn't guaranteed to match input order in every language.","Assuming case sensitivity, unicode, or whitespace won't matter — 'a' and 'A' are different keys unless the string is normalized first, which can silently change the answer."],
+  complexityTime:"O(n)", complexitySpace:"O(charset size)", complexityScale:2,
+  complexityNote:"Two linear passes over the string — one to build the frequency map, one to scan for the first count-1 character — so total time stays O(n) despite being two separate loops.",
+  memoryStack:["i (int)","c (char)"],
+  memoryHeap:"A HashMap<Character,Integer> freq mapping each character to how many times it appears in the string.",
+  comparison:[
+    {name:"Lookup Based (Two Sum)", diff:"Two Sum's hash map stores values seen so far to find a complementary partner in a single pass; frequency-based counting instead tallies occurrences across the whole input before any lookup decision is made."},
+    {name:"Set Based (Longest Consecutive Sequence)", diff:"Set-based lookups only ever need to know whether a value exists, not how many times; frequency counting needs the actual occurrence count, which a plain set can't provide."}
+  ],
+  tips: ["'Find the first/only element that appears exactly once' is the strongest signal for a two-pass frequency map.","Always finish building the complete frequency map before trusting any count — a character's true frequency isn't known until the full string has been read.","Re-scan the original input (not the map) for the second pass whenever the answer depends on original order or position — map iteration order can't be relied on."],
+  flash: [
+    {q:"Why does this pattern need two passes instead of one?", a:"A character's final count isn't known until the entire string has been scanned, so counting must finish before checking which one is unique."},
+    {q:"Why re-scan the original string for the second pass instead of the frequency map?", a:"The answer depends on the character's original position/order, which the hash map's key order doesn't reliably preserve."},
+    {q:"Time / space complexity?", a:"O(n) time across both passes; O(charset size) space for the frequency map."}
+  ]
 }
+
 };
 
 /* ===================== BUILD SIDEBAR ===================== */
