@@ -251,7 +251,7 @@
     <section id="home">
       <div class="hero-eyebrow">// 16 categories · one language · zero shortcuts</div>
       <h2>Every DSA pattern, <span>mapped</span> — a first batch fully <span>built</span>.</h2>
-      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>28 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
+      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>29 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
 
       <div class="stat-row" id="stat-row"></div>
 
@@ -271,7 +271,7 @@
     </section>
   </div>
 
-  <footer>// end of file · wave 10: 28/95 patterns fully built · rest follow the same engine on request</footer>
+  <footer>// end of file · wave 11: 29/95 patterns fully built · rest follow the same engine on request</footer>
 </main>
 
 <script>
@@ -2060,6 +2060,54 @@ const PATTERNS_DB = {
     {q:"Why does this pattern need two passes instead of one?", a:"A character's final count isn't known until the entire string has been scanned, so counting must finish before checking which one is unique."},
     {q:"Why re-scan the original string for the second pass instead of the frequency map?", a:"The answer depends on the character's original position/order, which the hash map's key order doesn't reliably preserve."},
     {q:"Time / space complexity?", a:"O(n) time across both passes; O(charset size) space for the frequency map."}
+  ]
+},
+
+"Hash Map||Core Uses||Lookup Based": {
+  build: buildTwoSumLookup,
+  problem: "Given an array of numbers, find the two indices whose values add up to a target sum.",
+  concept: "Walk through the array once, and for every element, ask a single question first: has its complement (target - current value) already been seen? A hash map storing every value visited so far, mapped to its index, turns that question into an O(1) lookup. If the complement isn't there yet, record the current value and index so a later element can find it.",
+  keywords: ["two sum","complement lookup","hash map value to index","single pass","O(1) membership check"],
+  questions: ["For each element, do I need to know whether some other specific value (like target minus current) has already appeared earlier?","Would checking every other element for each element be an O(n²) brute force?","Can I answer the question with a single forward pass instead of two nested loops?"],
+  eli10: "Imagine collecting puzzle pieces one at a time, and after picking up each piece you ask 'do I already have the piece that fits with this one?' Instead of rummaging back through every piece you've ever picked up, you keep a labeled tray where every piece is instantly findable by its shape — so the answer takes no time to check at all.",
+  pitfalls: ["Checking seen.containsKey(nums[i]) instead of the complement — the lookup must be for target - nums[i], not for the current value itself.","Putting the current value into the map before checking for its complement — if nums[i] is exactly half of target, that would incorrectly pair an element with itself.","Assuming there could be multiple valid answer pairs and only recording the first — most versions of this problem guarantee exactly one valid pair, but always re-check the problem's exact guarantee."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"A single left-to-right pass; every lookup and insert into the hash map is O(1) on average, so total time stays linear instead of the O(n²) nested-loop brute force.",
+  memoryStack:["i (int)","complement (int)"],
+  memoryHeap:"A HashMap<Integer,Integer> seen mapping each value already visited to its index.",
+  comparison:[
+    {name:"Frequency Based (First Unique Character)", diff:"Frequency-based counting tallies how many times each value occurs across the whole input before deciding anything; lookup-based hashing instead checks for a specific complementary value on the fly, one element at a time, in a single pass."},
+    {name:"Set Based (Longest Consecutive Sequence)", diff:"Set-based lookups only ask 'does this value exist anywhere in the input', with no need to track a position; this pattern needs the actual index of the earlier occurrence, so a map (value → index) is used instead of a plain set."}
+  ],
+  tips: ["'Find a pair (or triplet) matching a target' on an unsorted array is the strongest signal for a lookup-based hash map — sorting would lose the original indices, which two pointers usually needs.","Always compute and check the complement before writing the current element into the map, to correctly handle the case where two equal values sum to the target.","This single idea — 'store what I've seen, then look up what I need' — generalizes directly to counting subarrays with a target sum/XOR using running prefixes instead of raw values."],
+  flash: [
+    {q:"What does the hash map store here?", a:"Every value seen so far, mapped to the index at which it appeared."},
+    {q:"What is looked up at each step?", a:"The complement — target minus the current element's value — to see if its partner has already been seen."},
+    {q:"Time / space complexity?", a:"O(n) time — one pass with O(1) average lookups; O(n) space for the hash map in the worst case."}
+  ]
+},
+
+"Hash Map||Core Uses||Set Based": {
+  build: buildLongestConsecutiveSet,
+  problem: "Given an unsorted array of integers, find the length of the longest run of consecutive integers (they don't need to be contiguous in the array itself, just consecutive in value).",
+  concept: "Drop every number into a hash set first, so 'does this value exist?' becomes an O(1) lookup instead of a scan. Then, for each number, only bother expanding a run from it if it's a true run START — meaning num - 1 is NOT in the set. From a genuine start, count upward (num + 1, num + 2, …) for as long as the set contains the next value, tracking the longest run found. Skipping non-start numbers is what keeps the total work linear instead of quadratic.",
+  keywords: ["longest consecutive sequence","hash set","O(1) membership","run start check","unsorted integers"],
+  questions: ["Do I only need to know whether a value exists, not its count or position?","Can I identify a 'starting point' cheaply, so I never re-walk the same run of numbers from multiple different starting numbers?","Would sorting first work, but a hash set let me do it in O(n) instead of O(n log n)?"],
+  eli10: "Imagine a pile of numbered tiles scattered on a table, and you want the longest unbroken staircase you can build with them. First, you glance at every tile so you instantly know which numbers exist at all, with no searching. Then, for each tile, you check just one thing before building anything: 'does the tile one step below me exist?' If it does, someone else's staircase already covers you, so you skip it — you only ever start climbing from a tile that's truly the bottom of its staircase, so you never climb the same staircase twice.",
+  pitfalls: ["Forgetting the 'is this a run start' check (num - 1 not in set) and instead trying to expand from every number — that silently turns the algorithm into O(n²) in the worst case, since long runs get re-walked from every one of their members.","Sorting the array first as the 'obvious' fix — it works and is simpler to reason about, but costs O(n log n); the hash-set version is a genuine O(n) improvement precisely because it avoids sorting.","Using a HashMap<Integer,Integer> to also store extra bookkeeping when a plain HashSet<Integer> is all that's needed — this pattern only ever asks 'does this value exist', never 'how many times' or 'at what index'."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Every number is visited a constant number of times overall: once to insert it into the set, and then it's only ever the target of a numSet.contains() check from inside the run that actually starts before it — no number is ever re-walked as part of two different expansions, so total work stays linear despite the nested-looking while loop.",
+  memoryStack:["num (int)","length (int)","longest (int)"],
+  memoryHeap:"A HashSet<Integer> numSet holding every distinct value from the input array.",
+  comparison:[
+    {name:"Lookup Based (Two Sum)", diff:"Two Sum's hash map stores value → index because it needs to report a position; set-based lookups here only ever need existence, so a plain HashSet suffices and no index bookkeeping is required."},
+    {name:"Frequency Based (First Unique Character)", diff:"Frequency counting needs to know how many times each value occurs; this pattern never cares about counts, only about which values are present, which is exactly what a set (not a map) is for."}
+  ],
+  tips: ["'Longest run of consecutive values in an unsorted array/list' is the strongest signal for a hash set with a run-start check.","The single line that makes this O(n) instead of O(n²) is the run-start guard — say it out loud: 'only expand from num if num - 1 is NOT in the set'.","This pattern generalizes to any 'does a chain/sequence of related values exist' question where checking existence is enough — no counts, no positions, just membership."],
+  flash: [
+    {q:"What single check keeps this pattern O(n) instead of O(n²)?", a:"Only expanding a run from numbers where num - 1 is NOT in the set — that guarantees every run is walked exactly once, from its true start."},
+    {q:"Why a HashSet instead of a HashMap here?", a:"The pattern only ever needs to know whether a value exists, never a count or an index — a plain set is the right tool for pure membership checks."},
+    {q:"Time / space complexity?", a:"O(n) time — each number is inserted once and each run is walked once in total; O(n) space for the hash set."}
   ]
 }
 
