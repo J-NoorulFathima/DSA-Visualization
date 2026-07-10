@@ -251,7 +251,7 @@
     <section id="home">
       <div class="hero-eyebrow">// 16 categories · one language · zero shortcuts</div>
       <h2>Every DSA pattern, <span>mapped</span> — a first batch fully <span>built</span>.</h2>
-      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>19 patterns</code> spanning arrays, strings, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
+      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>26 patterns</code> spanning arrays, strings, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
 
       <div class="stat-row" id="stat-row"></div>
 
@@ -271,7 +271,7 @@
     </section>
   </div>
 
-  <footer>// end of file · wave 3: 19/95 patterns fully built · rest follow the same engine on request</footer>
+  <footer>// end of file · wave 5: 26/95 patterns fully built · rest follow the same engine on request</footer>
 </main>
 
 <script>
@@ -1042,6 +1042,38 @@ function buildAnagramInString(){
   return {steps,code,arr,structureType:'array'};
 }
 
+/* ===================== PATTERN 20: String Two Pointers – Palindrome Check ===================== */
+function buildPalindromeCheck(){
+  const s="racecar";
+  const arr=s.split('');
+  const code=[
+"int left = 0, right = s.length() - 1;",
+"while (left < right) {",
+"    if (s.charAt(left) != s.charAt(right)) return false;",
+"    left++;",
+"    right--;",
+"}",
+"return true;"];
+  const steps=[]; let left=0,right=arr.length-1;
+  const P=()=>[{idx:left,label:'L',color:'amber'},{idx:right,label:'R',color:'teal'}];
+  steps.push({line:0,vars:{left,right},pointers:P(),cellColors:{},msg:'Place L at the start and R at the end of the string.'});
+  while(left<right){
+    steps.push({line:1,vars:{left,right},pointers:P(),cellColors:{},msg:'Loop while L is still left of R.'});
+    if(arr[left]!==arr[right]){
+      steps.push({line:2,vars:{left,right,'s[left]':arr[left],'s[right]':arr[right]},pointers:[{idx:left,label:'L',color:'rose'},{idx:right,label:'R',color:'rose'}],cellColors:{[left]:'rose',[right]:'rose'},msg:`s[L]='${arr[left]}' does not match s[R]='${arr[right]}' — not a palindrome, return false.`});
+      return {steps,code,arr,structureType:'array'};
+    }
+    steps.push({line:2,vars:{left,right,'s[left]':arr[left],'s[right]':arr[right]},pointers:[{idx:left,label:'L',color:'violet'},{idx:right,label:'R',color:'violet'}],cellColors:{[left]:'violet',[right]:'violet'},msg:`s[L]='${arr[left]}' matches s[R]='${arr[right]}' — keep going.`});
+    left++;
+    steps.push({line:3,vars:{left},pointers:P(),cellColors:{},msg:'L moves one step inward.'});
+    right--;
+    steps.push({line:4,vars:{right},pointers:P(),cellColors:{},msg:'R moves one step inward.'});
+  }
+  steps.push({line:1,vars:{left,right},pointers:[],cellColors:{},msg:'L met or crossed R — every pair matched, so the string is a palindrome. Return true.'});
+  steps.push({line:6,vars:{result:true},pointers:[],cellColors:rangeColor(0,arr.length-1,'violet'),msg:'Done. "'+s+'" is a palindrome.'});
+  return {steps,code,arr,structureType:'array'};
+}
+
 /* ===================== PATTERNS_DB ===================== */
 const PATTERNS_DB = {
 "Array||Two Pointers||Opposite Ends": {
@@ -1497,6 +1529,30 @@ const PATTERNS_DB = {
     {q:"What makes two windows a match here?", a:"Having the exact same character frequency counts, regardless of order."},
     {q:"Is the window size fixed or variable?", a:"Fixed — always the length of s1."},
     {q:"Time complexity?", a:"O(n) — each character enters and leaves the window once, and frequency comparison over a bounded alphabet is O(1)."}
+  ]
+},
+
+"String||Two Pointers||Palindrome Check": {
+  build: buildPalindromeCheck,
+  problem: "Check whether a given string reads the same forwards and backwards.",
+  concept: "Place one pointer at the very start and one at the very end of the string, and walk them toward each other. At every step, compare the characters they point to — if they ever disagree, the string can't be a palindrome, so stop immediately. If the pointers meet or cross without ever disagreeing, every character had a matching partner, so the string is a palindrome.",
+  keywords: ["palindrome","reads the same backwards","two pointers","opposite ends string","mirror check"],
+  questions: ["Do I need to check whether a sequence mirrors itself around its center?","Can I compare from both ends inward instead of reversing the whole string and comparing?","Can I stop the instant I find a single mismatch, without checking the rest?"],
+  eli10: "Picture two friends starting at opposite ends of a word spelled out in blocks, walking toward the middle and shouting out each letter as they pass it. If their letters ever don't match, you immediately know it's not a mirror-word. If they meet in the middle without ever disagreeing, it's a palindrome.",
+  pitfalls: ["Case sensitivity or spaces/punctuation aren't handled — real-world palindrome problems (like 'A man, a plan...') usually need the string normalized (lowercased, non-alphanumeric stripped) before comparing.","Reversing the whole string and comparing is a valid O(n) alternative but uses O(n) extra space — the two-pointer version does it in O(1) space.","Off-by-one errors in the loop condition — it should be left < right (strictly), not <=, or the middle character of an odd-length string gets compared against itself unnecessarily (harmless, but wasteful)."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Each pointer moves inward at most n/2 times before they meet or cross — a single linear pass with constant extra space.",
+  memoryStack:["left (int)","right (int)"],
+  memoryHeap:"The input string/char array s[] — read-only, no extra array needed for the check itself.",
+  comparison:[
+    {name:"Opposite Ends Two Pointers (Array)", diff:"Same core mechanic — pointers closing in from both ends — but here the comparison is equality of characters rather than searching for a target sum."},
+    {name:"Reverse Characters", diff:"Reverse Characters also uses opposite-end pointers, but swaps values in place to build a reversed string instead of just comparing and stopping early."}
+  ],
+  tips: ["'Reads the same forwards and backwards' is the direct signal for opposite-end two pointers on a string.","Always ask whether the input needs normalizing first (case, spaces, punctuation) before the pointer walk begins — that's the most common real-world twist.","Because you can bail out on the very first mismatch, this is often faster in practice than building a reversed copy and comparing the whole thing."],
+  flash: [
+    {q:"Core idea of the palindrome check?", a:"Two pointers start at opposite ends and move inward, comparing characters at each step."},
+    {q:"When do you know it's NOT a palindrome?", a:"The instant s[left] != s[right] for any pair — no need to check further."},
+    {q:"Time / space complexity?", a:"O(n) time, O(1) space — no extra array is needed."}
   ]
 }
 };
