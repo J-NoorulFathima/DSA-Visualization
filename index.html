@@ -251,7 +251,7 @@
     <section id="home">
       <div class="hero-eyebrow">// 16 categories · one language · zero shortcuts</div>
       <h2>Every DSA pattern, <span>mapped</span> — a first batch fully <span>built</span>.</h2>
-      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view — wired up end-to-end for <code>7 patterns</code> spanning arrays, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
+      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>19 patterns</code> spanning arrays, strings, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
 
       <div class="stat-row" id="stat-row"></div>
 
@@ -271,7 +271,7 @@
     </section>
   </div>
 
-  <footer>// end of file · wave 1: 7/95 patterns fully built · rest follow the same engine on request</footer>
+  <footer>// end of file · wave 3: 19/95 patterns fully built · rest follow the same engine on request</footer>
 </main>
 
 <script>
@@ -416,7 +416,85 @@ function buildTwoPointersOpposite(){
   return {steps,code,arr,structureType:'array'};
 }
 
-/* ===================== PATTERN 2: Sliding Window – Fixed Size ===================== */
+/* ===================== PATTERN 2: Two Pointers – Same Direction (Fast & Slow) ===================== */
+function buildFastSlowMoveZeroes(){
+  const arr=[0,1,0,3,12];
+  const code=[
+"int slow = 0;",
+"for (int fast = 0; fast < arr.length; fast++) {",
+"    if (arr[fast] != 0) {",
+"        int temp = arr[slow];",
+"        arr[slow] = arr[fast];",
+"        arr[fast] = temp;",
+"        slow++;",
+"    }",
+"}",
+"return arr;"];
+  const steps=[]; let slow=0; const work=[...arr];
+  steps.push({line:0,vars:{slow},pointers:[{idx:0,label:'slow',color:'amber'}],cellColors:{},arrOverride:[...work],msg:'slow marks the boundary — everything before it is non-zero so far.'});
+  for(let fast=0; fast<work.length; fast++){
+    steps.push({line:1,vars:{fast,slow},pointers:[{idx:fast,label:'fast',color:'teal'},{idx:slow,label:'slow',color:'amber'}],cellColors:{},arrOverride:[...work],msg:`fast scans forward — looking at index ${fast} (value ${work[fast]}).`});
+    if(work[fast]!==0){
+      steps.push({line:2,vars:{fast,'arr[fast]':work[fast]},pointers:[{idx:fast,label:'fast',color:'teal'},{idx:slow,label:'slow',color:'amber'}],cellColors:{[fast]:'teal'},arrOverride:[...work],msg:`arr[fast] is non-zero — it needs to move up to the slow boundary.`});
+      const temp=work[slow];
+      work[slow]=work[fast];
+      work[fast]=temp;
+      steps.push({line:5,vars:{slow,fast},pointers:[{idx:fast,label:'fast',color:'teal'},{idx:slow,label:'slow',color:'amber'}],cellColors:{[slow]:'violet',[fast]:'violet'},arrOverride:[...work],msg:`Swap arr[slow] and arr[fast].`});
+      slow++;
+      steps.push({line:6,vars:{slow},pointers:[{idx:fast,label:'fast',color:'teal'},{idx:slow,label:'slow',color:'amber'}],cellColors:{},arrOverride:[...work],msg:`slow moves forward — the non-zero region grew by one.`});
+    } else {
+      steps.push({line:2,vars:{fast,'arr[fast]':work[fast]},pointers:[{idx:fast,label:'fast',color:'teal'},{idx:slow,label:'slow',color:'amber'}],cellColors:{[fast]:'rose'},arrOverride:[...work],msg:`arr[fast] is zero — leave it, fast just keeps moving.`});
+    }
+  }
+  steps.push({line:9,vars:{},pointers:[],cellColors:{},arrOverride:[...work],msg:`Done. All zeroes pushed to the end: [${work.join(', ')}]`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 3: Two Pointers – Partition / Dutch Flag ===================== */
+function buildDutchFlag(){
+  const arr=[2,0,2,1,1,0];
+  const code=[
+"int low = 0, mid = 0, high = arr.length - 1;",
+"while (mid <= high) {",
+"    if (arr[mid] == 0) {",
+"        swap(arr, low, mid);",
+"        low++; mid++;",
+"    } else if (arr[mid] == 1) {",
+"        mid++;",
+"    } else {",
+"        swap(arr, mid, high);",
+"        high--;",
+"    }",
+"}"];
+  const steps=[]; const work=[...arr];
+  let low=0, mid=0, high=work.length-1;
+  const P=()=>[{idx:low,label:'low',color:'amber'},{idx:mid,label:'mid',color:'teal'},{idx:high,label:'high',color:'violet'}];
+  steps.push({line:0,vars:{low,mid,high},pointers:P(),cellColors:{},arrOverride:[...work],msg:'Three pointers: low/mid split the sorted zone, high marks the unsorted end.'});
+  while(mid<=high){
+    steps.push({line:1,vars:{low,mid,high},pointers:P(),cellColors:{},arrOverride:[...work],msg:'Loop while mid has not passed high.'});
+    if(work[mid]===0){
+      steps.push({line:2,vars:{mid,'arr[mid]':work[mid]},pointers:P(),cellColors:{[mid]:'rose'},arrOverride:[...work],msg:`arr[mid] = 0 — it belongs in the front (0s) zone.`});
+      const t=work[low]; work[low]=work[mid]; work[mid]=t;
+      steps.push({line:3,vars:{low,mid},pointers:P(),cellColors:{[low]:'violet',[mid]:'violet'},arrOverride:[...work],msg:'Swap arr[low] and arr[mid] to plant this 0 in the front zone.'});
+      low++; mid++;
+      steps.push({line:4,vars:{low,mid},pointers:P(),cellColors:{},arrOverride:[...work],msg:'Both low and mid advance — the front zone grew and mid has seen this cell already.'});
+    } else if(work[mid]===1){
+      steps.push({line:5,vars:{mid,'arr[mid]':work[mid]},pointers:P(),cellColors:{[mid]:'teal'},arrOverride:[...work],msg:`arr[mid] = 1 — already in the right place, just move past it.`});
+      mid++;
+      steps.push({line:6,vars:{mid},pointers:P(),cellColors:{},arrOverride:[...work],msg:'mid advances.'});
+    } else {
+      steps.push({line:7,vars:{mid,'arr[mid]':work[mid]},pointers:P(),cellColors:{[mid]:'amber'},arrOverride:[...work],msg:`arr[mid] = 2 — it belongs at the back (2s) zone.`});
+      const t=work[mid]; work[mid]=work[high]; work[high]=t;
+      steps.push({line:8,vars:{mid,high},pointers:P(),cellColors:{[mid]:'violet',[high]:'violet'},arrOverride:[...work],msg:'Swap arr[mid] and arr[high] to plant this 2 in the back zone.'});
+      high--;
+      steps.push({line:9,vars:{high},pointers:P(),cellColors:{},arrOverride:[...work],msg:'high shrinks — mid is not advanced yet because the swapped-in value is still unknown.'});
+    }
+  }
+  steps.push({line:1,vars:{low,mid,high},pointers:[],cellColors:{},arrOverride:[...work],msg:`Done. mid crossed high — array partitioned into 0s, 1s, 2s: [${work.join(', ')}]`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 4: Sliding Window – Fixed Size ===================== */
 function buildSlidingWindowFixed(){
   const arr=[2,1,5,1,3,2], k=3;
   const code=[
@@ -447,7 +525,151 @@ function buildSlidingWindowFixed(){
 }
 function rangeColor(a,b,color){const o={};for(let i=a;i<=b;i++)o[i]=color;return o;}
 
-/* ===================== PATTERN 3: Kadane's – Max Subarray Sum ===================== */
+/* ===================== PATTERN 5: Sliding Window – Variable Size (Expand–Shrink) ===================== */
+function buildVariableWindow(){
+  const arr=[2,3,1,2,4,3], target=7;
+  const code=[
+"int left = 0, sum = 0, minLen = Integer.MAX_VALUE;",
+"for (int right = 0; right < arr.length; right++) {",
+"    sum += arr[right];",
+"    while (sum >= target) {",
+"        minLen = Math.min(minLen, right - left + 1);",
+"        sum -= arr[left];",
+"        left++;",
+"    }",
+"}",
+"return minLen == Integer.MAX_VALUE ? 0 : minLen;"];
+  const steps=[]; let left=0,sum=0,minLen=Infinity;
+  const disp=(v)=>v===Infinity?'∞':v;
+  steps.push({line:0,vars:{left,sum,minLen:disp(minLen)},pointers:[],cellColors:{},msg:'left marks the window start; the window grows by moving right.'});
+  for(let right=0; right<arr.length; right++){
+    sum+=arr[right];
+    steps.push({line:2,vars:{right,sum},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'teal'),msg:`Expand: add arr[${right}] into the window. sum = ${sum}`});
+    steps.push({line:3,vars:{sum,target},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'teal'),msg:`Check: is sum (${sum}) >= target (${target})?`});
+    while(sum>=target){
+      minLen=Math.min(minLen,right-left+1);
+      steps.push({line:4,vars:{minLen:disp(minLen),windowLen:right-left+1},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'violet'),msg:`Window is valid — record its length. minLen = ${disp(minLen)}`});
+      sum-=arr[left];
+      steps.push({line:5,vars:{left,sum},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:{[left]:'rose'},msg:`Shrink: drop arr[${left}] from the window. sum = ${sum}`});
+      left++;
+      steps.push({line:6,vars:{left},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'teal'),msg:`left advances — window shrinks from the front.`});
+      steps.push({line:3,vars:{sum,target},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'teal'),msg:`Check again: is sum (${sum}) >= target (${target})?`});
+    }
+  }
+  steps.push({line:9,vars:{minLen:disp(minLen)},pointers:[],cellColors:{},msg:`Done. Smallest window with sum >= ${target} has length ${disp(minLen)}.`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 6: Sliding Window – Monotonic Window ===================== */
+function buildMonotonicDeque(){
+  const arr=[1,3,-1,-3,5,3,6,7], k=3;
+  const code=[
+"Deque<Integer> deque = new ArrayDeque<>();",
+"int[] result = new int[arr.length - k + 1];",
+"for (int i = 0; i < arr.length; i++) {",
+"    while (!deque.isEmpty() && deque.peekFirst() <= i - k) deque.pollFirst();",
+"    while (!deque.isEmpty() && arr[deque.peekLast()] < arr[i]) deque.pollLast();",
+"    deque.offerLast(i);",
+"    if (i >= k - 1) result[i - k + 1] = arr[deque.peekFirst()];",
+"}"];
+  const steps=[]; const deque=[]; const result=[];
+  steps.push({line:1,vars:{k},pointers:[],cellColors:{},stack:[...deque],msg:`Deque will hold indices, always kept so their values decrease front-to-back — the front is always the current window's max.`});
+  for(let i=0;i<arr.length;i++){
+    steps.push({line:2,vars:{i,'arr[i]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...deque],msg:`Looking at index ${i} (value ${arr[i]}).`});
+    while(deque.length && deque[0]<=i-k){
+      const removed=deque.shift();
+      steps.push({line:3,vars:{i,removedFromFront:removed},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[removed]:'rose'},stack:[...deque],msg:`Index ${removed} fell out of the k-window — drop it from the front.`});
+    }
+    while(deque.length && arr[deque[deque.length-1]]<arr[i]){
+      const removed=deque.pop();
+      steps.push({line:4,vars:{i,removedFromBack:removed},pointers:[{idx:i,label:'i',color:'amber'},{idx:removed,label:'pop',color:'rose'}],cellColors:{[removed]:'violet'},stack:[...deque],msg:`arr[${removed}]=${arr[removed]} can never be the max while arr[${i}]=${arr[i]} is in the window — discard it.`});
+    }
+    deque.push(i);
+    steps.push({line:5,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...deque],msg:`Push index ${i} onto the back of the deque.`});
+    if(i>=k-1){
+      const maxIdx=deque[0];
+      result.push(arr[maxIdx]);
+      steps.push({line:6,vars:{windowStart:i-k+1,windowEnd:i,max:arr[maxIdx]},pointers:[{idx:maxIdx,label:'max',color:'violet'},{idx:i,label:'i',color:'amber'}],cellColors:rangeColor(i-k+1,i,'teal'),stack:[...deque],msg:`Window [${i-k+1}..${i}] max is arr[${maxIdx}] = ${arr[maxIdx]} — the deque's front always holds it.`});
+    }
+  }
+  steps.push({line:7,vars:{},pointers:[],cellColors:{},stack:[...deque],msg:`Done. Sliding window maximums = [${result.join(', ')}]`});
+  return {steps,code,arr,structureType:'stack'};
+}
+
+/* ===================== PATTERN 7: Prefix Based – Prefix Sum ===================== */
+function buildPrefixSum(){
+  const arr=[4,2,-1,3,5]; const l=1,r=3;
+  const code=[
+"int[] prefix = new int[arr.length + 1];",
+"for (int i = 0; i < arr.length; i++) {",
+"    prefix[i + 1] = prefix[i] + arr[i];",
+"}",
+"int rangeSum = prefix[r + 1] - prefix[l];",
+"return rangeSum;"];
+  const steps=[]; const prefix=[0];
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},msg:'Allocate a prefix array, one slot longer than arr.'});
+  for(let i=0;i<arr.length;i++){
+    prefix.push(prefix[i]+arr[i]);
+    steps.push({line:2,vars:{i,'prefix[i+1]':prefix[i+1]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]:'teal'},msg:`prefix[${i+1}] = prefix[${i}] + arr[${i}] = ${prefix[i+1]}`});
+  }
+  const rangeSum=prefix[r+1]-prefix[l];
+  steps.push({line:4,vars:{l,r,'prefix[r+1]':prefix[r+1],'prefix[l]':prefix[l],rangeSum},pointers:[{idx:l,label:'l',color:'amber'},{idx:r,label:'r',color:'violet'}],cellColors:rangeColor(l,r,'violet'),msg:`Range sum(${l}..${r}) = prefix[${r+1}] - prefix[${l}] = ${rangeSum}, computed in O(1).`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 8: Prefix Based – Prefix XOR ===================== */
+function buildPrefixXor(){
+  const arr=[4,6,2,9,3]; const l=1,r=3;
+  const code=[
+"int[] prefixXor = new int[arr.length + 1];",
+"for (int i = 0; i < arr.length; i++) {",
+"    prefixXor[i + 1] = prefixXor[i] ^ arr[i];",
+"}",
+"int rangeXor = prefixXor[r + 1] ^ prefixXor[l];",
+"return rangeXor;"];
+  const steps=[]; const prefixXor=[0];
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},msg:'Allocate a prefixXor array, one slot longer than arr, starting at 0.'});
+  for(let i=0;i<arr.length;i++){
+    prefixXor.push(prefixXor[i]^arr[i]);
+    steps.push({line:2,vars:{i,'prefixXor[i+1]':prefixXor[i+1]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]:'teal'},msg:`prefixXor[${i+1}] = prefixXor[${i}] ^ arr[${i}] = ${prefixXor[i]} ^ ${arr[i]} = ${prefixXor[i+1]}`});
+  }
+  const rangeXor=prefixXor[r+1]^prefixXor[l];
+  steps.push({line:4,vars:{l,r,'prefixXor[r+1]':prefixXor[r+1],'prefixXor[l]':prefixXor[l],rangeXor},pointers:[{idx:l,label:'l',color:'amber'},{idx:r,label:'r',color:'violet'}],cellColors:rangeColor(l,r,'violet'),msg:`Range XOR(${l}..${r}) = prefixXor[${r+1}] ^ prefixXor[${l}] = ${rangeXor}, computed in O(1).`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 9: Prefix Based – 2D Prefix ===================== */
+function buildTwoDPrefix(){
+  const matrix=[[1,2,3,4],[5,6,7,8],[9,10,11,12]];
+  const r1=1,c1=1,r2=2,c2=3;
+  const rows=matrix.length, cols=matrix[0].length;
+  const code=[
+"int rows = matrix.length, cols = matrix[0].length;",
+"int[][] prefix = new int[rows + 1][cols + 1];",
+"for (int i = 0; i < rows; i++) {",
+"    for (int j = 0; j < cols; j++) {",
+"        prefix[i+1][j+1] = matrix[i][j] + prefix[i][j+1] + prefix[i+1][j] - prefix[i][j];",
+"    }",
+"}",
+"int sum = prefix[r2+1][c2+1] - prefix[r1][c2+1] - prefix[r2+1][c1] + prefix[r1][c1];",
+"return sum;"];
+  const steps=[];
+  const prefix=Array.from({length:rows+1},()=>new Array(cols+1).fill(0));
+  steps.push({line:0,vars:{rows,cols},cellColors:{},gridPointer:null,msg:'Read the matrix dimensions, then allocate a prefix table one row and one column larger.'});
+  for(let i=0;i<rows;i++){
+    for(let j=0;j<cols;j++){
+      prefix[i+1][j+1] = matrix[i][j] + prefix[i][j+1] + prefix[i+1][j] - prefix[i][j];
+      steps.push({line:4,vars:{i,j,'matrix[i][j]':matrix[i][j],'prefix[i+1][j+1]':prefix[i+1][j+1]},cellColors:{[i+'-'+j]:'teal'},gridPointer:{r:i,c:j,label:'i,j',color:'teal'},msg:`prefix[${i+1}][${j+1}] = matrix[${i}][${j}] + prefix[${i}][${j+1}] + prefix[${i+1}][${j}] - prefix[${i}][${j}] = ${prefix[i+1][j+1]}`});
+    }
+  }
+  const cc={};
+  for(let i=r1;i<=r2;i++) for(let j=c1;j<=c2;j++) cc[i+'-'+j]='violet';
+  const sum = prefix[r2+1][c2+1] - prefix[r1][c2+1] - prefix[r2+1][c1] + prefix[r1][c1];
+  steps.push({line:7,vars:{r1,c1,r2,c2,sum},cellColors:cc,gridPointer:null,msg:`Query region rows ${r1}..${r2}, cols ${c1}..${c2} → sum = prefix[${r2+1}][${c2+1}] − prefix[${r1}][${c2+1}] − prefix[${r2+1}][${c1}] + prefix[${r1}][${c1}] = ${sum}, all in O(1).`});
+  return {steps,code,grid:matrix,structureType:'grid'};
+}
+
+/* ===================== PATTERN 10: Kadane's – Max Subarray Sum ===================== */
 function buildKadane(){
   const arr=[-2,1,-3,4,-1,2,1,-5,4];
   const code=[
@@ -472,7 +694,7 @@ function buildKadane(){
   return {steps,code,arr,structureType:'array'};
 }
 
-/* ===================== PATTERN 4: Binary Search – On Index ===================== */
+/* ===================== PATTERN 11: Binary Search – On Index ===================== */
 function buildBinarySearch(){
   const arr=[1,3,5,7,9,11,13], target=11;
   const code=[
@@ -504,28 +726,7 @@ function buildBinarySearch(){
   return {steps,code,arr,structureType:'array'};
 }
 
-/* ===================== PATTERN 5: Prefix Sum ===================== */
-function buildPrefixSum(){
-  const arr=[4,2,-1,3,5]; const l=1,r=3;
-  const code=[
-"int[] prefix = new int[arr.length + 1];",
-"for (int i = 0; i < arr.length; i++) {",
-"    prefix[i + 1] = prefix[i] + arr[i];",
-"}",
-"int rangeSum = prefix[r + 1] - prefix[l];",
-"return rangeSum;"];
-  const steps=[]; const prefix=[0];
-  steps.push({line:0,vars:{},pointers:[],cellColors:{},msg:'Allocate a prefix array, one slot longer than arr.'});
-  for(let i=0;i<arr.length;i++){
-    prefix.push(prefix[i]+arr[i]);
-    steps.push({line:2,vars:{i,'prefix[i+1]':prefix[i+1]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]:'teal'},msg:`prefix[${i+1}] = prefix[${i}] + arr[${i}] = ${prefix[i+1]}`});
-  }
-  const rangeSum=prefix[r+1]-prefix[l];
-  steps.push({line:4,vars:{l,r,'prefix[r+1]':prefix[r+1],'prefix[l]':prefix[l],rangeSum},pointers:[{idx:l,label:'l',color:'amber'},{idx:r,label:'r',color:'violet'}],cellColors:rangeColor(l,r,'violet'),msg:`Range sum(${l}..${r}) = prefix[${r+1}] - prefix[${l}] = ${rangeSum}, computed in O(1).`});
-  return {steps,code,arr,structureType:'array'};
-}
-
-/* ===================== PATTERN 6: Nearest Element – Next Greater (Monotonic Stack) ===================== */
+/* ===================== PATTERN 12: Nearest Element – Next Greater (Monotonic Stack) ===================== */
 function buildNextGreater(){
   const arr=[2,1,2,4,3];
   const code=[
@@ -554,7 +755,7 @@ function buildNextGreater(){
   return {steps,code,arr,structureType:'stack'};
 }
 
-/* ===================== PATTERN 7: DP 1D – Climbing Stairs ===================== */
+/* ===================== PATTERN 13: DP 1D – Climbing Stairs ===================== */
 function buildClimbingStairs(){
   const n=6;
   const arr=new Array(n+1).fill(null);
@@ -577,6 +778,268 @@ function buildClimbingStairs(){
   }
   steps.push({line:6,vars:{'dp[n]':dp[n]},pointers:[{idx:n,label:'n',color:'violet'}],cellColors:{[n]:'violet'},arrOverride:[...arr],msg:`Done. There are ${dp[n]} distinct ways to climb ${n} steps.`});
   return {steps,code,arr:arr.map(v=>v===null?'·':v),structureType:'array',arrRaw:arr};
+}
+
+/* ===================== PATTERN 14: Kadane's – Max Product Subarray ===================== */
+function buildMaxProductSubarray(){
+  const arr=[2,3,-2,4,-1];
+  const code=[
+"int maxProd = arr[0], minProd = arr[0], result = arr[0];",
+"for (int i = 1; i < arr.length; i++) {",
+"    if (arr[i] < 0) {",
+"        int temp = maxProd;",
+"        maxProd = minProd;",
+"        minProd = temp;",
+"    }",
+"    maxProd = Math.max(arr[i], maxProd * arr[i]);",
+"    minProd = Math.min(arr[i], minProd * arr[i]);",
+"    result = Math.max(result, maxProd);",
+"}",
+"return result;"];
+  const steps=[]; let maxProd=arr[0], minProd=arr[0], result=arr[0];
+  steps.push({line:0,vars:{maxProd,minProd,result},pointers:[{idx:0,label:'i',color:'amber'}],cellColors:{0:'violet'},msg:'Track both a running max AND a running min — a negative number can flip the smallest product into the largest.'});
+  for(let i=1;i<arr.length;i++){
+    if(arr[i]<0){
+      steps.push({line:2,vars:{i,'arr[i]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]:'rose'},msg:`arr[${i}] is negative — it would flip max and min, so swap them first.`});
+      const temp=maxProd; maxProd=minProd; minProd=temp;
+      steps.push({line:4,vars:{maxProd,minProd},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]:'rose'},msg:`Swapped: maxProd and minProd trade places before multiplying.`});
+    }
+    const newMax=Math.max(arr[i],maxProd*arr[i]);
+    const restarted = newMax===arr[i] && arr[i]>maxProd*arr[i];
+    maxProd=newMax;
+    steps.push({line:7,vars:{i,'arr[i]':arr[i],maxProd},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]: restarted?'rose':'teal'},msg: restarted?`Extending the product would be worse — restart maxProd at arr[${i}].`:`Extend the running product: maxProd = ${maxProd}`});
+    minProd=Math.min(arr[i],minProd*arr[i]);
+    steps.push({line:8,vars:{minProd},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},msg:`minProd = ${minProd} — kept alive in case the next element is negative.`});
+    const improved = maxProd>result;
+    result=Math.max(result,maxProd);
+    steps.push({line:9,vars:{maxProd,result},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]: improved?'violet':(restarted?'rose':'teal')},msg: improved?`New best product: result = ${result}`:`result stays ${result}`});
+  }
+  steps.push({line:11,vars:{result},pointers:[],cellColors:{},msg:`Done. Max product subarray = ${result}`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 15: Subarray with Given XOR / Sum (count subarrays with XOR = K) ===================== */
+function buildSubarrayGivenXor(){
+  const arr=[4,2,2,6,4], k=6;
+  const code=[
+"Map<Integer, Integer> freq = new HashMap<>();",
+"freq.put(0, 1);",
+"int prefixXor = 0, count = 0;",
+"for (int i = 0; i < arr.length; i++) {",
+"    prefixXor ^= arr[i];",
+"    int needed = prefixXor ^ k;",
+"    count += freq.getOrDefault(needed, 0);",
+"    freq.put(prefixXor, freq.getOrDefault(prefixXor, 0) + 1);",
+"}",
+"return count;"];
+  const fmtMap=(m)=>'{'+Object.entries(m).map(([kk,v])=>`${kk}:${v}`).join(', ')+'}';
+  const freq={0:1};
+  let prefixXor=0, count=0;
+  const steps=[];
+  steps.push({line:1,vars:{freq:fmtMap(freq),k},pointers:[],cellColors:{},msg:'freq tracks how many times each prefixXor value has been seen so far — start with prefixXor = 0 occurring once (the empty prefix).'});
+  for(let i=0;i<arr.length;i++){
+    prefixXor ^= arr[i];
+    steps.push({line:4,vars:{i,'arr[i]':arr[i],prefixXor},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]:'teal'},msg:`prefixXor ^= arr[${i}] → prefixXor = ${prefixXor}`});
+    const needed = prefixXor ^ k;
+    steps.push({line:5,vars:{prefixXor,k,needed},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{[i]:'teal'},msg:`needed = prefixXor ^ k = ${prefixXor} ^ ${k} = ${needed} — if this value was seen before, everything between forms a subarray with XOR ${k}.`});
+    const add = freq[needed]||0;
+    count += add;
+    steps.push({line:6,vars:{needed,'freq[needed]':add,count},pointers:[{idx:i,label:'i',color:'amber'}],cellColors: add>0?{[i]:'violet'}:{[i]:'teal'},msg: add>0? `freq[${needed}] = ${add} — found ${add} earlier matching prefix(es). count = ${count}` : `That prefix value hasn't been seen before — count stays ${count}.`});
+    freq[prefixXor]=(freq[prefixXor]||0)+1;
+    steps.push({line:7,vars:{prefixXor,'freq[prefixXor]':freq[prefixXor],freq:fmtMap(freq)},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},msg:`Record this prefixXor value. freq = ${fmtMap(freq)}`});
+  }
+  steps.push({line:9,vars:{count},pointers:[],cellColors:{},msg:`Done. Number of subarrays with XOR = ${k} is ${count}.`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 16: Binary Search – On Answer (Koko Eating Bananas) ===================== */
+function buildBinarySearchOnAnswer(){
+  const piles=[3,6,7,11], h=8;
+  const maxPile = Math.max(...piles);
+  const arr = Array.from({length:maxPile},(_,i)=>i+1); // arr[i] represents candidate speed i+1
+  const code=[
+"int lo = 1, hi = maxPile;",
+"while (lo < hi) {",
+"    int mid = lo + (hi - lo) / 2;",
+"    if (canFinish(piles, mid, h)) hi = mid;",
+"    else lo = mid + 1;",
+"}",
+"return lo;"];
+  function hoursNeeded(speed){
+    return piles.reduce((a,p)=>a+Math.ceil(p/speed),0);
+  }
+  const steps=[]; let lo=1, hi=maxPile;
+  const P=()=>[{idx:lo-1,label:'lo',color:'amber'},{idx:hi-1,label:'hi',color:'teal'}];
+  steps.push({line:0,vars:{lo,hi,piles:piles.join(','),h},pointers:P(),cellColors:{},msg:'The search space isn\u2019t the piles array — it\u2019s every possible eating speed, from 1 up to the largest pile.'});
+  while(lo<hi){
+    steps.push({line:1,vars:{lo,hi},pointers:P(),cellColors:{},msg:'Loop while lo < hi.'});
+    const mid = lo + Math.floor((hi-lo)/2);
+    const hours = hoursNeeded(mid);
+    const ok = hours<=h;
+    steps.push({line:2,vars:{lo,hi,mid,hoursNeeded:hours,h},pointers:[{idx:lo-1,label:'lo',color:'amber'},{idx:hi-1,label:'hi',color:'teal'},{idx:mid-1,label:'mid',color:'violet'}],cellColors:{[mid-1]: ok?'violet':'rose'},msg:`mid = ${mid} → at this speed, Koko needs ${hours} hours (limit is ${h}).`});
+    if(ok){
+      steps.push({line:3,vars:{mid,hi:mid},pointers:[{idx:mid-1,label:'mid',color:'violet'}],cellColors:{[mid-1]:'violet'},msg:`${hours} <= ${h} — speed ${mid} works. It might not be the smallest, so shrink hi down to mid.`});
+      hi=mid;
+    } else {
+      steps.push({line:4,vars:{mid,lo:mid+1},pointers:[{idx:mid-1,label:'mid',color:'violet'}],cellColors:rangeColor(0,mid-1,'rose'),msg:`${hours} > ${h} — speed ${mid} (and everything slower) is too slow. Discard it: lo = mid + 1.`});
+      lo=mid+1;
+    }
+  }
+  steps.push({line:6,vars:{lo},pointers:[{idx:lo-1,label:'lo',color:'violet'}],cellColors:{[lo-1]:'violet'},msg:`Done. lo == hi — the minimum eating speed that finishes in time is ${lo}.`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 17: String Sliding Window – Longest Substring Without Repeat ===================== */
+function buildLongestSubstringNoRepeat(){
+  const s="abcabcbb";
+  const arr=s.split('');
+  const code=[
+"Map<Character, Integer> lastSeen = new HashMap<>();",
+"int left = 0, maxLen = 0;",
+"for (int right = 0; right < s.length(); right++) {",
+"    char c = s.charAt(right);",
+"    if (lastSeen.containsKey(c) && lastSeen.get(c) >= left) {",
+"        left = lastSeen.get(c) + 1;",
+"    }",
+"    lastSeen.put(c, right);",
+"    maxLen = Math.max(maxLen, right - left + 1);",
+"}",
+"return maxLen;"];
+  const lastSeen={};
+  let left=0, maxLen=0;
+  const steps=[];
+  steps.push({line:1,vars:{left,maxLen},pointers:[],cellColors:{},msg:'left marks the window start; lastSeen remembers the most recent index of each character.'});
+  for(let right=0; right<arr.length; right++){
+    const c=arr[right];
+    steps.push({line:3,vars:{right,c},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'teal'),msg:`Looking at s[${right}] = '${c}'.`});
+    if(lastSeen[c]!==undefined && lastSeen[c]>=left){
+      const newLeft=lastSeen[c]+1;
+      steps.push({line:5,vars:{c,'lastSeen[c]':lastSeen[c],left:newLeft},pointers:[{idx:right,label:'right',color:'teal'},{idx:lastSeen[c],label:'dup',color:'rose'}],cellColors:{[lastSeen[c]]:'rose'},msg:`'${c}' was already seen inside the window at index ${lastSeen[c]} — jump left past it.`});
+      left=newLeft;
+    }
+    lastSeen[c]=right;
+    steps.push({line:7,vars:{c,'lastSeen[c]':right},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'teal'),msg:`Record that '${c}' was last seen at index ${right}.`});
+    const len=right-left+1;
+    const improved = len>maxLen;
+    maxLen=Math.max(maxLen,len);
+    steps.push({line:8,vars:{left,right,maxLen},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors: improved? rangeColor(left,right,'violet') : rangeColor(left,right,'teal'),msg: improved? `New longest window: length ${maxLen} = [${left}..${right}].` : `maxLen stays ${maxLen}.`});
+  }
+  steps.push({line:10,vars:{maxLen},pointers:[],cellColors:{},msg:`Done. Longest substring without repeating characters has length ${maxLen}.`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 18: String Sliding Window – Minimum Window Substring ===================== */
+function buildMinWindowSubstring(){
+  const s = "ADOBECODEBANC", t = "ABC";
+  const arr = s.split('');
+  const code=[
+"Map<Character, Integer> need = new HashMap<>();",
+"for (char c : t.toCharArray()) need.merge(c, 1, Integer::sum);",
+"int required = need.size();",
+"Map<Character, Integer> window = new HashMap<>();",
+"int formed = 0, left = 0, minLen = Integer.MAX_VALUE, minStart = 0;",
+"for (int right = 0; right < s.length(); right++) {",
+"    char c = s.charAt(right);",
+"    window.merge(c, 1, Integer::sum);",
+"    if (need.containsKey(c) && window.get(c).intValue() == need.get(c).intValue()) formed++;",
+"    while (formed == required) {",
+"        if (right - left + 1 < minLen) { minLen = right - left + 1; minStart = left; }",
+"        char lc = s.charAt(left);",
+"        window.put(lc, window.get(lc) - 1);",
+"        if (need.containsKey(lc) && window.get(lc) < need.get(lc)) formed--;",
+"        left++;",
+"    }",
+"}",
+"return minLen == Integer.MAX_VALUE ? \"\" : s.substring(minStart, minStart + minLen);"];
+  const need = {};
+  for(const c of t) need[c] = (need[c]||0)+1;
+  const required = Object.keys(need).length;
+  const window_ = {};
+  let formed=0, left=0, minLen=Infinity, minStart=0;
+  const disp=(v)=>v===Infinity?'\u221e':v;
+  const fmtMap=(m)=>'{'+Object.entries(m).map(([k,v])=>`${k}:${v}`).join(', ')+'}';
+  const steps=[];
+  steps.push({line:4,vars:{need:fmtMap(need),required,formed,left,minLen:disp(minLen)},pointers:[],cellColors:{},msg:`need = ${fmtMap(need)} — looking for the smallest window containing every character of "${t}".`});
+  for(let right=0; right<arr.length; right++){
+    const c=arr[right];
+    window_[c]=(window_[c]||0)+1;
+    steps.push({line:7,vars:{right,c,window:fmtMap(window_)},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'teal'),msg:`Add s[${right}]='${c}' into the window. window = ${fmtMap(window_)}`});
+    if(need[c]!==undefined && window_[c]===need[c]){
+      formed++;
+      steps.push({line:8,vars:{formed,required},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'teal'),msg:`'${c}' is now fully satisfied in the window. formed = ${formed} / ${required}`});
+    }
+    while(formed===required){
+      steps.push({line:9,vars:{formed,required},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'violet'),msg:`Window [${left}..${right}] contains every needed character — try to shrink it.`});
+      if(right-left+1<minLen){
+        minLen=right-left+1; minStart=left;
+        steps.push({line:10,vars:{minLen,minStart},pointers:[{idx:right,label:'right',color:'teal'},{idx:left,label:'left',color:'amber'}],cellColors:rangeColor(left,right,'violet'),msg:`New smallest valid window: length ${minLen} starting at ${minStart}.`});
+      }
+      const lc=arr[left];
+      window_[lc]--;
+      steps.push({line:12,vars:{left,lc,window:fmtMap(window_)},pointers:[{idx:left,label:'left',color:'amber'}],cellColors:{[left]:'rose'},msg:`Shrink: drop s[${left}]='${lc}' from the window.`});
+      if(need[lc]!==undefined && window_[lc]<need[lc]){
+        formed--;
+        steps.push({line:13,vars:{formed,required},pointers:[{idx:left,label:'left',color:'amber'}],cellColors:{},msg:`'${lc}' is no longer fully satisfied. formed = ${formed} / ${required}`});
+      }
+      left++;
+      steps.push({line:14,vars:{left},pointers:[{idx:left,label:'left',color:'amber'},{idx:right,label:'right',color:'teal'}],cellColors:rangeColor(left,right,'teal'),msg:`left advances.`});
+    }
+  }
+  const result = minLen===Infinity ? '' : s.substring(minStart,minStart+minLen);
+  steps.push({line:17,vars:{minLen:disp(minLen),minStart,result:`"${result}"`},pointers:[],cellColors: minLen===Infinity?{}:rangeColor(minStart,minStart+minLen-1,'violet'),msg:`Done. Smallest window containing all of "${t}" is "${result}".`});
+  return {steps,code,arr,structureType:'array'};
+}
+
+/* ===================== PATTERN 19: String Sliding Window – Anagram / Permutation in String ===================== */
+function buildAnagramInString(){
+  const s1="ab", s2="eidbaooo";
+  const k=s1.length;
+  const arr=s2.split('');
+  const code=[
+"int[] need = new int[26];",
+"for (char c : s1.toCharArray()) need[c - 'a']++;",
+"int[] window = new int[26];",
+"int k = s1.length();",
+"for (int i = 0; i < s2.length(); i++) {",
+"    window[s2.charAt(i) - 'a']++;",
+"    if (i >= k) window[s2.charAt(i - k) - 'a']--;",
+"    if (i >= k - 1 && Arrays.equals(window, need)) return true;",
+"}",
+"return false;"];
+  const need={};
+  for(const c of s1) need[c]=(need[c]||0)+1;
+  const window_={};
+  const fmtMap=(m)=>{
+    const entries=Object.entries(m).filter(([kk,v])=>v!==0);
+    return '{'+entries.map(([kk,v])=>`${kk}:${v}`).join(', ')+'}';
+  };
+  const mapsEqual=(a,b)=>{
+    const na={}, nb={};
+    Object.entries(a).forEach(([kk,v])=>{if(v!==0) na[kk]=v;});
+    Object.entries(b).forEach(([kk,v])=>{if(v!==0) nb[kk]=v;});
+    return JSON.stringify(na)===JSON.stringify(nb);
+  };
+  const steps=[];
+  steps.push({line:3,vars:{need:fmtMap(need),k},pointers:[],cellColors:{},msg:`need = frequency map of "${s1}" = ${fmtMap(need)}. The window size is fixed at k = ${k}.`});
+  for(let i=0;i<arr.length;i++){
+    const c=arr[i];
+    window_[c]=(window_[c]||0)+1;
+    steps.push({line:5,vars:{i,c,window:fmtMap(window_)},pointers:[{idx:i,label:'i',color:'teal'}],cellColors:rangeColor(Math.max(0,i-k+1),i,'teal'),msg:`Add s2[${i}]='${c}' into the window. window = ${fmtMap(window_)}`});
+    if(i>=k){
+      const out=arr[i-k];
+      window_[out]--;
+      steps.push({line:6,vars:{dropped:out,window:fmtMap(window_)},pointers:[{idx:i,label:'i',color:'teal'},{idx:i-k,label:'out',color:'rose'}],cellColors:rangeColor(i-k+1,i,'teal'),msg:`Window exceeded size k — drop s2[${i-k}]='${out}'. window = ${fmtMap(window_)}`});
+    }
+    if(i>=k-1){
+      const eq=mapsEqual(window_,need);
+      steps.push({line:7,vars:{window:fmtMap(window_),need:fmtMap(need)},pointers:[{idx:Math.max(0,i-k+1),label:'L',color:'amber'},{idx:i,label:'R',color:'teal'}],cellColors: eq?rangeColor(i-k+1,i,'violet'):rangeColor(i-k+1,i,'teal'),msg: eq? `window matches need exactly — a permutation of "${s1}" found at [${i-k+1}..${i}].` : `window doesn't match need yet.`});
+      if(eq){
+        return {steps,code,arr,structureType:'array'};
+      }
+    }
+  }
+  steps.push({line:9,vars:{},pointers:[],cellColors:{},msg:`Done scanning — no permutation of "${s1}" found in "${s2}".`});
+  return {steps,code,arr,structureType:'array'};
 }
 
 /* ===================== PATTERNS_DB ===================== */
@@ -605,6 +1068,54 @@ const PATTERNS_DB = {
   ]
 },
 
+"Array||Two Pointers||Same Direction (Fast & Slow)": {
+  build: buildFastSlowMoveZeroes,
+  problem: "Move all zeroes in an array to the end while keeping the order of non-zero elements.",
+  concept: "Two pointers start together at index 0 and move in the same direction, not toward each other. fast scans every element; slow only advances when a non-zero element is found, marking the boundary of the 'clean' region built so far. Swapping arr[slow] and arr[fast] slides that non-zero value into place in a single pass.",
+  keywords: ["move zeroes","in-place","same direction pointers","slow/fast boundary","remove duplicates (sorted)"],
+  questions: ["Am I overwriting an array in place based on a condition, without extra space?","Does one pointer only move when a condition is satisfied while another always moves?","Would I otherwise need to shift the whole array manually after each match?"],
+  eli10: "Imagine sorting kids into a line — the ones who arrived quietly step forward into an ever-growing front group, while a helper walks the whole line checking everyone. The 'quiet' front group grows one kid at a time and stays in the same order they arrived.",
+  pitfalls: ["Order matters and needs to be preserved — a naive filter/rebuild can silently change relative order if done carelessly.","Confusing slow and fast roles — slow should only ever move on a match, fast always moves every iteration.","Trying to delete/shift elements one by one instead of swapping — that turns an O(n) pass into O(n²)."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Single pass; each pointer advances at most n times, so total work stays linear.",
+  memoryStack:["slow (int)","fast (int)","temp (int)"],
+  memoryHeap:"The input array arr[] — modified in place, no extra array.",
+  comparison:[
+    {name:"Opposite Ends Two Pointers", diff:"Opposite-end pointers close in on each other from both sides; fast/slow pointers instead travel together in the same direction at different paces."},
+    {name:"Cycle Detection (Linked List)", diff:"Also called fast/slow, but there fast moves 2 steps for every 1 step of slow to detect a cycle — a different speed relationship entirely."}
+  ],
+  tips: ["Whenever you need to compact/filter an array in place while preserving order, think slow=write pointer, fast=read pointer.","slow should always sit at the next 'writable' position — it only moves after something is actually written there.","This same idea (write pointer + scan pointer) solves remove-duplicates-from-sorted-array, move zeroes, and partition problems."],
+  flash: [
+    {q:"What does 'slow' track in this pattern?", a:"The boundary of the region that's already been fixed / compacted so far."},
+    {q:"Does slow move every iteration?", a:"No — only fast moves every iteration; slow only advances when a match is found."},
+    {q:"Time/space complexity?", a:"O(n) time, O(1) space — done in place."}
+  ]
+},
+
+"Array||Two Pointers||Partition / Dutch Flag": {
+  build: buildDutchFlag,
+  problem: "Sort an array containing only 0s, 1s, and 2s in a single pass, in place.",
+  concept: "Maintain three regions using low, mid, and high pointers: everything before low is 0s, between low and mid is 1s, and everything after high is 2s. Scan with mid — a 0 gets swapped to the front and low/mid both advance, a 1 is already correctly placed so only mid advances, and a 2 gets swapped to the back (high shrinks) without advancing mid, since the swapped-in value hasn't been checked yet.",
+  keywords: ["dutch national flag","sort 0 1 2","three-way partition","low mid high","quicksort partition"],
+  questions: ["Are there exactly a small, fixed number of distinct values (like 0/1/2) to partition around?","Do I need this done in one pass, in place, without a full sort?","Can I describe the array as three growing/shrinking regions?"],
+  eli10: "Picture sorting red, white, and blue balls into three zones on a shelf using only three markers. Red balls get pushed to the far left zone, blue balls get pushed to the far right zone, and white balls just stay where they are in the middle — you never need to fully re-sort, just three markers sliding towards each other.",
+  pitfalls: ["Forgetting that after swapping a 2 to the back, mid must NOT advance — the newly swapped-in value at mid hasn't been examined yet.","Using this for more than 3 distinct values — Dutch flag partitioning is specifically a 3-way split.","Mixing up low/mid roles — low is the write-pointer for 0s, mid is the scanner, they are not interchangeable."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Single pass — mid moves right through the whole array once; low and high only ever move toward each other or with mid.",
+  memoryStack:["low (int)","mid (int)","high (int)"],
+  memoryHeap:"The input array arr[] — sorted in place, no extra array.",
+  comparison:[
+    {name:"Same Direction Fast & Slow", diff:"That pattern uses two pointers moving together; Dutch flag needs a third pointer (high) moving from the opposite end to manage the 2s region."},
+    {name:"Full Comparison Sort", diff:"A general sort is O(n log n); Dutch flag partitioning exploits having only 3 distinct values to sort in O(n)."}
+  ],
+  tips: ["If a problem says 'sort an array of only 0s, 1s, 2s' (or any 3 fixed categories), Dutch flag partitioning is almost always the intended O(n) solution.","Draw the three zones on paper — front (0s), middle (1s), back (2s) — before coding the pointer movements.","Remember the asymmetry: after fixing a 0 you advance mid, after fixing a 2 you do NOT — that's the detail almost everyone gets wrong first try."],
+  flash: [
+    {q:"How many pointers does Dutch flag partitioning use?", a:"Three — low, mid, and high."},
+    {q:"After swapping a 2 to the back, does mid advance?", a:"No — the swapped-in value at mid must still be checked."},
+    {q:"Time/space complexity?", a:"O(n) time, O(1) space."}
+  ]
+},
+
 "Array||Sliding Window||Fixed Size": {
   build: buildSlidingWindowFixed,
   problem: "Find the maximum sum of any contiguous subarray of size k.",
@@ -626,6 +1137,126 @@ const PATTERNS_DB = {
     {q:"Fixed sliding window used for?", a:"Aggregates (sum, avg, count) over every contiguous window of a fixed size k."},
     {q:"Core trick?", a:"windowValue += arr[end] - arr[end-k] instead of recomputing the whole window."},
     {q:"Time complexity?", a:"O(n) — one pass, O(1) work per slide."}
+  ]
+},
+
+"Array||Sliding Window||Variable Size (Expand–Shrink)": {
+  build: buildVariableWindow,
+  problem: "Find the length of the smallest contiguous subarray whose sum is at least a given target.",
+  concept: "Grow the window by moving right forward and adding each new element. Whenever the window's sum satisfies the condition (sum >= target), the window might be shrinkable, so keep shrinking from the left — recording the length each time — until it no longer satisfies the condition. This expand-then-shrink rhythm explores every valid window without ever re-scanning from scratch.",
+  keywords: ["minimum window","variable window","expand shrink","smallest subarray sum","longest substring condition"],
+  questions: ["Is the window size not fixed, but determined by some condition (sum, count, distinct characters)?","Does adding elements only make the condition 'more true' (monotonic), so shrinking makes sense once it's satisfied?","Am I looking for the smallest or largest window meeting a condition?"],
+  eli10: "You're filling a bucket with water, adding one cup at a time, until it's 'full enough'. Once it is, you start pouring cups back out from the bottom one at a time — checking after each pour whether it's still full enough — to find the smallest amount of water that still counts as full.",
+  pitfalls: ["The condition isn't monotonic (adding an element could make it both more and less valid) — plain expand/shrink breaks down without extra structure.","Forgetting to re-check the while condition after every single shrink step, not just once per expansion.","Confusing this with fixed-size sliding window — here the window size itself is the thing being searched for."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Right moves forward n times total; left also moves forward at most n times total across the whole run — so total work is still linear, not quadratic.",
+  memoryStack:["left (int)","right (int)","sum (int)","minLen (int)"],
+  memoryHeap:"The input array arr[] — no extra array needed.",
+  comparison:[
+    {name:"Fixed Size Sliding Window", diff:"Fixed window keeps a constant size k; variable window's size changes based on whether a condition currently holds."},
+    {name:"Monotonic Window", diff:"Monotonic window also expands/shrinks, but shrinks based on comparing values (to keep a deque ordered), not based on an aggregate condition like sum."}
+  ],
+  tips: ["'Smallest/shortest subarray satisfying X' is the classic signal for variable-size sliding window.","Write the shrink condition as a while loop, not an if — you may need to shrink multiple steps after one expansion.","Always update your answer (min/max length) at the point where the window is valid, right before or during shrinking."],
+  flash: [
+    {q:"When does the window shrink?", a:"Whenever the current window satisfies the target condition — shrink until it no longer does."},
+    {q:"Why is this still O(n) despite the nested while loop?", a:"left only ever moves forward, at most n times total across the entire run — it never resets."},
+    {q:"What kind of condition does this pattern need?", a:"A monotonic one — expanding the window should only ever move it toward satisfying the condition."}
+  ]
+},
+
+"Array||Sliding Window||Monotonic Window": {
+  build: buildMonotonicDeque,
+  problem: "Find the maximum value inside every contiguous window of size k as it slides across the array.",
+  concept: "Keep a deque of indices whose values are in decreasing order from front to back — the front is always the current window's maximum. Before adding a new index, pop from the back every index whose value is smaller than the new one (they can never be the max again while this bigger value is in the window). Also drop the front if it has fallen outside the k-sized window.",
+  keywords: ["sliding window maximum","monotonic deque","decreasing deque","window of size k"],
+  questions: ["Do I need the min/max of every window as it slides, not just a sum or count?","Would a naive re-scan of each window be O(n·k) and too slow?","Can I discard values that can never be the answer again once something better has entered the window?"],
+  eli10: "Picture a line of people of different heights walking past a doorway, and you want to always know who's tallest among the last 3 people who walked through. Every time someone new and taller arrives, everyone shorter standing right in front of them in your 'remember' list can be forgotten — they'll never be tallest again while this new person is around.",
+  pitfalls: ["Storing values in the deque instead of indices — you need the index to know when an entry has fallen outside the window.","Popping from the front unconditionally instead of checking if it's actually outside the window (index <= i - k).","Confusing this with a monotonic stack — the window here needs removal from both ends (front expiry, back domination), so a deque is required, not a plain stack."],
+  complexityTime:"O(n)", complexitySpace:"O(k)", complexityScale:2,
+  complexityNote:"Every index is pushed once and popped at most once from either end — amortized O(1) per element despite the nested-looking while loops.",
+  memoryStack:["i (int)"],
+  memoryHeap:"A Deque<Integer> of indices (size at most k), plus a result[] array.",
+  comparison:[
+    {name:"Next Greater Element (Monotonic Stack)", diff:"That pattern uses a single-ended stack and never expires old entries by position; this pattern needs both position-based expiry and value-based domination, hence a deque."},
+    {name:"Variable Size Sliding Window", diff:"Variable window shrinks based on an aggregate condition (like sum); monotonic window's size is fixed at k and shrinks/reorders based on comparing values."}
+  ],
+  tips: ["'Maximum/minimum in every window of size k' is the strongest signal for a monotonic deque.","Always check front-expiry (index-based) and back-domination (value-based) as two separate while loops — don't merge them.","The front of the deque is your answer for the current window — you never need to scan the deque itself to find the max."],
+  flash: [
+    {q:"What invariant does the deque maintain?", a:"Values decrease from front to back — the front is always the current window's max."},
+    {q:"Why store indices instead of values?", a:"To know when an entry has aged out of the k-sized window."},
+    {q:"Time complexity?", a:"O(n) amortized — each index is pushed and popped at most once total."}
+  ]
+},
+
+"Array||Prefix Based||Prefix Sum": {
+  build: buildPrefixSum,
+  problem: "Answer many 'sum of elements between index l and r' queries efficiently.",
+  concept: "Precompute a running total prefix[i] = sum of the first i elements. Once that's built, any range sum(l, r) is just prefix[r+1] - prefix[l] — one subtraction instead of re-adding a whole range every time.",
+  keywords: ["range sum query","cumulative sum","precompute","O(1) query","subarray sum equals k"],
+  questions: ["Will there be many range-sum queries on a fixed array?","Would I otherwise re-sum overlapping ranges repeatedly?","Can the answer to a range be expressed as a difference of two running totals?"],
+  eli10: "Imagine writing down your total savings at the end of every day. To know how much you earned between day 3 and day 7, you don't re-add every day's earnings — you just subtract your day-3 total from your day-7 total.",
+  pitfalls: ["Only one or two range queries are ever needed — building the whole prefix array isn't worth the setup cost then.","The array changes frequently (many updates) — plain prefix sums get expensive to rebuild; use a Fenwick/segment tree instead.","Off-by-one indexing between prefix[i] meaning 'first i elements' vs 'up to index i' is a very common source of bugs."],
+  complexityTime:"O(n) build, O(1) per query", complexitySpace:"O(n)", complexityScale:1,
+  complexityNote:"One-time O(n) preprocessing buys O(1) answers for every future range query.",
+  memoryStack:["i (int)","l, r (int)","rangeSum (int)"],
+  memoryHeap:"An extra prefix[] array of length n+1 is allocated alongside the input array.",
+  comparison:[
+    {name:"Fenwick / Segment Tree", diff:"Needed instead of plain prefix sums when the array is updated frequently between queries."},
+    {name:"Sliding Window", diff:"Sliding window is O(n) total but only for consecutive windows swept in order; prefix sum answers arbitrary ranges in O(1) each."}
+  ],
+  tips: ["'Many range queries on a static array' is the strongest signal for prefix sums.","The trick generalizes: prefix XOR, prefix max, 2D prefix sums all follow the same 'precompute a running combine, then difference it' idea.","Watch your indexing convention (0-indexed vs 1-indexed prefix array) and stay consistent — write it down before coding."],
+  flash: [
+    {q:"Prefix sum core formula?", a:"prefix[i+1] = prefix[i] + arr[i]"},
+    {q:"Range sum(l, r) using prefix?", a:"prefix[r+1] - prefix[l]"},
+    {q:"When is it not worth it?", a:"When the array is updated often between queries — use Fenwick/segment tree instead."}
+  ]
+},
+
+"Array||Prefix Based||Prefix XOR": {
+  build: buildPrefixXor,
+  problem: "Answer many 'XOR of elements between index l and r' queries efficiently.",
+  concept: "Precompute a running XOR, prefixXor[i] = XOR of the first i elements. Because XOR-ing a value with itself cancels it out (x ^ x = 0), any range XOR(l, r) is just prefixXor[r+1] ^ prefixXor[l] — the prefix before l gets cancelled out, leaving only the elements from l to r.",
+  keywords: ["range xor query","cumulative xor","xor cancellation","subarray xor equals k"],
+  questions: ["Will there be many range-XOR queries on a fixed array?","Does the problem involve XOR of a contiguous range, not sum or product?","Can I exploit x ^ x = 0 to cancel out a prefix I don't need?"],
+  eli10: "Imagine a light switch that flips every time you press it. If you know the switch's state after step 7 and after step 3, comparing those two tells you exactly what happened between steps 3 and 7 — because everything before step 3 'cancels out' the same way on both sides.",
+  pitfalls: ["Forgetting the +1 offset — prefixXor[i] represents the XOR of the first i elements, so range(l, r) needs prefixXor[r+1] ^ prefixXor[l], not prefixXor[r] ^ prefixXor[l].","Trying to use this for sum or product ranges — the cancellation trick only works because XOR is its own inverse (x ^ x = 0).","The array updates frequently — like prefix sum, this needs O(n) preprocessing, so frequent updates need a different structure (e.g. a Fenwick tree over XOR)."],
+  complexityTime:"O(n) build, O(1) per query", complexitySpace:"O(n)", complexityScale:1,
+  complexityNote:"One-time O(n) preprocessing buys O(1) answers for every future range-XOR query.",
+  memoryStack:["i (int)","l, r (int)","rangeXor (int)"],
+  memoryHeap:"An extra prefixXor[] array of length n+1 is allocated alongside the input array.",
+  comparison:[
+    {name:"Prefix Sum", diff:"Same precompute-then-difference idea, but prefix sum uses subtraction; prefix XOR uses the XOR operator's self-cancelling property instead."},
+    {name:"Bit Masking", diff:"Bit masking encodes a set of choices into a single integer; prefix XOR instead accumulates a running XOR across array elements for range queries."}
+  ],
+  tips: ["'Range XOR query' or 'subarray XOR equals k' are the strongest signals for this pattern.","Remember x ^ x = 0 and x ^ 0 = x — those two facts are the entire reason this pattern works.","Combine with a hash map of prefixXor values (like subarray-sum-equals-k) to count subarrays with a target XOR in O(n)."],
+  flash: [
+    {q:"Prefix XOR core formula?", a:"prefixXor[i+1] = prefixXor[i] ^ arr[i]"},
+    {q:"Range XOR(l, r) using prefixXor?", a:"prefixXor[r+1] ^ prefixXor[l]"},
+    {q:"Why does the cancellation work?", a:"Because x ^ x = 0 — the shared prefix before l XORs away to nothing."}
+  ]
+},
+
+"Array||Prefix Based||2D Prefix": {
+  build: buildTwoDPrefix,
+  problem: "Answer many 'sum of the rectangle between (r1,c1) and (r2,c2)' queries on a matrix efficiently.",
+  concept: "Precompute a 2D prefix table where prefix[i+1][j+1] holds the sum of the rectangle from (0,0) to (i,j), using inclusion-exclusion to avoid double counting. Any rectangle's sum can then be found in O(1) with four lookups: bottom-right corner, minus the strip above, minus the strip to the left, plus the overlapping corner added back (since it was subtracted twice).",
+  keywords: ["2D prefix sum","matrix range sum","submatrix query","inclusion-exclusion"],
+  questions: ["Will there be many rectangular-sum queries on a fixed matrix?","Can I express a rectangle's sum as a combination of larger rectangles anchored at the origin?","Is the matrix static, or does it change often between queries?"],
+  eli10: "Imagine you've already written down, for every corner of a grid, the total treasure found from the top-left corner all the way to that point. To find the treasure inside just one small rectangle, you don't recount every cell — you combine four of those corner totals, carefully adding back a bit that got subtracted twice.",
+  pitfalls: ["Forgetting the inclusion-exclusion +prefix[i][j] term — without it, the overlapping top-left corner gets subtracted twice instead of once.","Off-by-one errors between the matrix's 0-indexed cells and the prefix table's 1-indexed rows/columns — keep the (rows+1) x (cols+1) sizing consistent.","The matrix is updated frequently — like 1D prefix sums, this needs a full O(rows·cols) rebuild on change, so a 2D Fenwick tree is better for frequent updates."],
+  complexityTime:"O(rows·cols) build, O(1) per query", complexitySpace:"O(rows·cols)", complexityScale:1,
+  complexityNote:"One-time preprocessing over every cell buys O(1) answers for any rectangular sum query afterward.",
+  memoryStack:["i, j (int)","r1, c1, r2, c2 (int)","sum (int)"],
+  memoryHeap:"A 2D prefix[][] table of size (rows+1) x (cols+1), alongside the input matrix.",
+  comparison:[
+    {name:"1D Prefix Sum", diff:"2D prefix sum is the same precompute-and-difference idea extended to two dimensions, needing inclusion-exclusion instead of simple subtraction."},
+    {name:"Segment Tree / Fenwick Tree (2D)", diff:"Needed instead of a plain 2D prefix table when the matrix is updated between queries — prefix sums assume a static matrix."}
+  ],
+  tips: ["'Many rectangular sum queries on a fixed matrix' is the strongest signal for 2D prefix sums.","Always build the prefix table one size larger in both dimensions ((rows+1) x (cols+1)) to avoid boundary checks.","Say the inclusion-exclusion formula out loud before coding it — corner minus top-strip minus left-strip plus double-subtracted-corner — it's easy to drop a term."],
+  flash: [
+    {q:"2D prefix table recurrence?", a:"prefix[i+1][j+1] = matrix[i][j] + prefix[i][j+1] + prefix[i+1][j] - prefix[i][j]"},
+    {q:"Why subtract prefix[i][j] in the build step?", a:"The top and left strips both include that corner cell, so it's added twice unless subtracted once."},
+    {q:"Rectangle query formula?", a:"prefix[r2+1][c2+1] - prefix[r1][c2+1] - prefix[r2+1][c1] + prefix[r1][c1]"}
   ]
 },
 
@@ -653,6 +1284,54 @@ const PATTERNS_DB = {
   ]
 },
 
+"Array||Kadane's / Subarray||Max Product Subarray": {
+  build: buildMaxProductSubarray,
+  problem: "Find the contiguous subarray with the largest product.",
+  concept: "Products behave differently from sums because a negative number flips small into big and big into small. So track a running max AND a running min at every index. If the current element is negative, swap max and min first (since multiplying by a negative reverses their order), then update both as max(arr[i], prevMax*arr[i]) and min(arr[i], prevMin*arr[i]).",
+  keywords: ["max product subarray","running max and min","negative flips product","product of contiguous subarray"],
+  questions: ["Is the operation multiplication, not addition — so can a negative number or a zero completely change which run is best?","Do I need to track both a running maximum AND a running minimum, not just one?","Could two negatives multiply into a big positive later, meaning I can't discard a very negative running product too early?"],
+  eli10: "You're collecting multiplier cards face-down along a path. Most flip your score up, but a 'negative' card flips your best score into your worst score and vice versa. So you keep track of both your best possible score and your worst possible score at every step — because a single negative card can turn your worst into your best on the very next step.",
+  pitfalls: ["Reusing Kadane's sum logic directly without also tracking a running minimum — a single negative number can silently break the answer.","Forgetting to swap maxProd and minProd before multiplying when arr[i] is negative — the roles need to flip, not just the values update independently.","Not handling a zero in the array — a zero resets both maxProd and minProd to zero, effectively restarting the run at the next index."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Single left-to-right pass, constant work per element — just like Kadane's, but tracking two running values instead of one.",
+  memoryStack:["maxProd (int)","minProd (int)","result (int)","i (int)"],
+  memoryHeap:"The input array arr[] — no auxiliary array required.",
+  comparison:[
+    {name:"Max Subarray Sum (Kadane's)", diff:"Sum only ever needs a running max, since adding a negative number just makes things smaller, never flips sign order; product needs a running min too."},
+    {name:"Subarray with Given XOR / Sum", diff:"That pattern answers 'does a subarray with a target value exist', typically via prefix + hash map, rather than 'what is the best possible aggregate'."}
+  ],
+  tips: ["Whenever you see 'product' instead of 'sum' in a subarray problem, immediately ask whether a running minimum is also needed.","Say out loud: 'a negative number swaps my best and worst' — that's the one-sentence justification for the swap step.","Walk through an array with two negatives by hand first; seeing the min/max swap twice makes the recurrence click."],
+  flash: [
+    {q:"Why track a running minimum as well as a maximum?", a:"A negative number can turn the smallest (most negative) running product into the largest, so the min must be tracked too."},
+    {q:"What happens before multiplying if arr[i] is negative?", a:"maxProd and minProd are swapped, since multiplying by a negative reverses their order."},
+    {q:"Time / space complexity?", a:"O(n) time, O(1) space."}
+  ]
+},
+
+"Array||Kadane's / Subarray||Subarray with Given XOR / Sum": {
+  build: buildSubarrayGivenXor,
+  problem: "Count the number of subarrays whose XOR of elements equals a given value k.",
+  concept: "Track a running prefixXor and a hash map of how many times each prefixXor value has occurred so far. For the current prefixXor, the value needed = prefixXor ^ k tells you exactly which earlier prefix, if it existed, would make the subarray between them XOR to k (since XOR-ing out the shared prefix cancels it, x ^ x = 0). Add however many times that needed value has occurred, then record the current prefixXor.",
+  keywords: ["subarray xor equals k","subarray sum equals k","prefix + hashmap","count subarrays","cancellation trick"],
+  questions: ["Do I need to count or find subarrays matching a target XOR or target sum, not just the best one?","Can I express 'does a valid subarray end here' as 'has some earlier prefix value been seen before'?","Would checking every subarray directly be an O(n²) brute force?"],
+  eli10: "Imagine a running scoreboard that updates after every step, and you keep a tally of every scoreboard value you've ever seen. To find a stretch that adds up to exactly your target, you just ask: 'has the scoreboard ever shown (today's score combined with the target) before?' If yes, everything between those two points is exactly the stretch you want.",
+  pitfalls: ["Forgetting to seed the frequency map with {0: 1} for the empty prefix — without it, subarrays starting at index 0 get missed.","Using this exact recipe for sum instead of XOR without changing 'needed' from prefixXor^k to prefix-k — the combining operation must match the target operation.","Confusing 'count subarrays' with 'find the longest/shortest subarray' — those need slightly different bookkeeping (counts vs. storing the earliest index)."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"One pass; each prefix value is looked up and stored in the hash map in O(1) amortized time.",
+  memoryStack:["i (int)","prefixXor (int)","needed (int)","count (int)"],
+  memoryHeap:"A HashMap<Integer,Integer> freq mapping prefixXor values to how many times they've occurred.",
+  comparison:[
+    {name:"Prefix XOR (range query)", diff:"Plain prefix XOR answers a single known range's XOR in O(1); this pattern instead searches over all possible ranges to count/find ones matching a target."},
+    {name:"Sliding Window", diff:"Sliding window relies on a monotonic condition to grow/shrink a window; XOR doesn't behave monotonically, so a hash map of prefixes is used instead."}
+  ],
+  tips: ["'Count subarrays with sum/XOR equal to k' is the strongest signal for prefix + hash map.","Always seed the map with the identity value (0 for XOR and for sum) occurring once, to catch subarrays starting at index 0.","The 'needed' formula is the whole trick: for sum it's prefix - k, for XOR it's prefix ^ k — write it down before coding."],
+  flash: [
+    {q:"Why seed freq with {0: 1}?", a:"To account for subarrays that start at index 0 — the 'empty prefix' before any elements."},
+    {q:"What does 'needed' represent?", a:"The earlier prefix value that, combined with the current one, would make the subarray between them match the target."},
+    {q:"Time / space complexity?", a:"O(n) time, O(n) space for the hash map."}
+  ]
+},
+
 "Array||Binary Search||On Index": {
   build: buildBinarySearch,
   problem: "Find the index of a target value in a sorted array.",
@@ -677,27 +1356,27 @@ const PATTERNS_DB = {
   ]
 },
 
-"Array||Prefix Based||Prefix Sum": {
-  build: buildPrefixSum,
-  problem: "Answer many 'sum of elements between index l and r' queries efficiently.",
-  concept: "Precompute a running total prefix[i] = sum of the first i elements. Once that's built, any range sum(l, r) is just prefix[r+1] - prefix[l] — one subtraction instead of re-adding a whole range every time.",
-  keywords: ["range sum query","cumulative sum","precompute","O(1) query","subarray sum equals k"],
-  questions: ["Will there be many range-sum queries on a fixed array?","Would I otherwise re-sum overlapping ranges repeatedly?","Can the answer to a range be expressed as a difference of two running totals?"],
-  eli10: "Imagine writing down your total savings at the end of every day. To know how much you earned between day 3 and day 7, you don't re-add every day's earnings — you just subtract your day-3 total from your day-7 total.",
-  pitfalls: ["Only one or two range queries are ever needed — building the whole prefix array isn't worth the setup cost then.","The array changes frequently (many updates) — plain prefix sums get expensive to rebuild; use a Fenwick/segment tree instead.","Off-by-one indexing between prefix[i] meaning 'first i elements' vs 'up to index i' is a very common source of bugs."],
-  complexityTime:"O(n) build, O(1) per query", complexitySpace:"O(n)", complexityScale:1,
-  complexityNote:"One-time O(n) preprocessing buys O(1) answers for every future range query.",
-  memoryStack:["i (int)","l, r (int)","rangeSum (int)"],
-  memoryHeap:"An extra prefix[] array of length n+1 is allocated alongside the input array.",
+"Array||Binary Search||On Answer": {
+  build: buildBinarySearchOnAnswer,
+  problem: "Find the minimum eating speed at which Koko can finish all banana piles within h hours.",
+  concept: "Instead of binary searching over array indices, binary search over the range of possible answers — here, every eating speed from 1 up to the largest pile. For a candidate speed, a feasibility check (can all piles be eaten within h hours at this speed?) tells you whether to search slower speeds or faster ones. Because 'can finish in time' only gets easier as speed increases, the feasibility results are monotonic, which is exactly what binary search needs.",
+  keywords: ["binary search on answer","minimize the maximum","feasibility check","koko eating bananas","ship packages within days","ans is monotonic"],
+  questions: ["Am I searching for the minimum or maximum value that satisfies some feasibility condition, rather than searching for a specific element?","Is there a monotonic relationship — does a bigger candidate answer always make the condition easier (or always harder) to satisfy?","Can I write a canCheck(candidate) function that runs efficiently and returns true/false?"],
+  eli10: "You're guessing how fast you'd need to shovel snow to clear a driveway before it gets dark. Guessing too slow a shovel-speed means you won't finish in time; guessing too fast is wasted effort. Instead of trying every possible speed one by one, you guess a middle speed, check if it finishes in time, and narrow your guess up or down — just like guessing a hidden number, except now you're guessing over 'speeds' instead of positions in an array.",
+  pitfalls: ["Assuming the answer must exist inside the input array — here the search space is a range of possible values, often built from min/max of the input, not the array itself.","Getting the feasibility direction backwards — always double check whether increasing the candidate makes the check easier to pass or harder.","The condition isn't actually monotonic — binary search silently gives a wrong answer if 'works at speed X' doesn't imply 'works at every faster speed too'."],
+  complexityTime:"O(n log(max))", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Binary search over the answer range takes O(log(max)) iterations, and each feasibility check costs O(n) to scan the piles — so total time is O(n log(max)).",
+  memoryStack:["lo (int)","hi (int)","mid (int)"],
+  memoryHeap:"The input piles[] array — read-only, scanned once per feasibility check.",
   comparison:[
-    {name:"Fenwick / Segment Tree", diff:"Needed instead of plain prefix sums when the array is updated frequently between queries."},
-    {name:"Sliding Window", diff:"Sliding window is O(n) total but only for consecutive windows swept in order; prefix sum answers arbitrary ranges in O(1) each."}
+    {name:"Binary Search On Index", diff:"On Index searches a sorted array directly for a value using equality; On Answer searches an abstract range of candidate answers using a feasibility check instead of equality."},
+    {name:"Greedy", diff:"Some 'minimize the maximum' problems can also be solved greedily; binary search on answer is often simpler to reason about when a clean feasibility check exists."}
   ],
-  tips: ["'Many range queries on a static array' is the strongest signal for prefix sums.","The trick generalizes: prefix XOR, prefix max, 2D prefix sums all follow the same 'precompute a running combine, then difference it' idea.","Watch your indexing convention (0-indexed vs 1-indexed prefix array) and stay consistent — write it down before coding."],
+  tips: ["Whenever a problem says 'minimize the maximum' or 'maximize the minimum' or 'find the smallest X such that Y is possible', think binary search on answer.","Write the feasibility check function first, in isolation, and convince yourself it's monotonic before writing the search loop around it.","The search space bounds (lo and hi) usually come from the problem's own numbers — e.g. 1 and max(piles) here — not from the array's indices."],
   flash: [
-    {q:"Prefix sum core formula?", a:"prefix[i+1] = prefix[i] + arr[i]"},
-    {q:"Range sum(l, r) using prefix?", a:"prefix[r+1] - prefix[l]"},
-    {q:"When is it not worth it?", a:"When the array is updated often between queries — use Fenwick/segment tree instead."}
+    {q:"What is being binary searched here — indices or values?", a:"Values — every possible eating speed from 1 up to the largest pile."},
+    {q:"What replaces the equality check in 'on index' binary search?", a:"A feasibility check: can this candidate answer satisfy the condition within the constraints?"},
+    {q:"Time complexity?", a:"O(n log(max)) — log(max) iterations, each doing an O(n) feasibility scan."}
   ]
 },
 
@@ -746,6 +1425,78 @@ const PATTERNS_DB = {
     {q:"Climbing stairs recurrence?", a:"dp[i] = dp[i-1] + dp[i-2]"},
     {q:"Why store dp[] at all?", a:"To avoid recomputing the same subproblem exponentially many times."},
     {q:"Can space be optimized?", a:"Yes — to O(1) using two rolling variables instead of the full array."}
+  ]
+},
+
+"String||Sliding Window||Longest Substring Without Repeat": {
+  build: buildLongestSubstringNoRepeat,
+  problem: "Find the length of the longest substring without any repeating characters.",
+  concept: "Grow the window with right and remember the last index each character was seen at. If the character at right was already seen inside the current window, jump left forward to just past that earlier occurrence — anything before it can never be part of a repeat-free window again. Update the best length after every step.",
+  keywords: ["longest substring","no repeating characters","sliding window","last seen index","distinct characters"],
+  questions: ["Do I need the longest (or count of) contiguous runs with a uniqueness/distinctness condition?","Can I track, for each character, the most recent index it appeared at?","Does the window only ever need to grow forward, jumping left rather than shrinking one step at a time?"],
+  eli10: "You're reading a book and want the longest stretch of pages where no character's name repeats. You keep a bookmark for where you started reading. The moment you spot a name you've already read since your bookmark, you move your bookmark to just after where that name last appeared — no need to re-read one page at a time.",
+  pitfalls: ["Checking lastSeen[c] exists but forgetting to also check lastSeen[c] >= left — an old occurrence from before the current window shouldn't force a jump.","Shrinking the window one step at a time with a while loop instead of jumping left directly — both work, but the direct jump is the O(n) version of this idea.","Confusing this with 'longest substring with at most K distinct characters' — that's a different, count-based condition needing a frequency map instead of last-seen indices."],
+  complexityTime:"O(n)", complexitySpace:"O(min(n, charset size))", complexityScale:2,
+  complexityNote:"Single pass; right visits each index once, and left only ever moves forward, so total work stays linear.",
+  memoryStack:["left (int)","right (int)","maxLen (int)"],
+  memoryHeap:"A HashMap<Character,Integer> lastSeen storing the most recent index of each character seen so far.",
+  comparison:[
+    {name:"Minimum Window Substring", diff:"That pattern shrinks the window step-by-step while a 'formed' counter holds, searching for the smallest valid window; this pattern jumps left directly when a repeat is found, searching for the longest valid window."},
+    {name:"Anagram / Permutation in String", diff:"That pattern uses a fixed-size window with frequency-count equality; this pattern's window size is variable and driven by a last-seen-index check."}
+  ],
+  tips: ["'Longest substring without repeating characters' is the canonical trigger for a last-seen-index sliding window.","The >= left check is the detail almost everyone misses at first — without it, jumps can go backwards.","Whenever a new character enters, always update its last-seen index, whether or not it caused a jump — that bookkeeping never stops."],
+  flash: [
+    {q:"What does lastSeen store?", a:"For each character, the most recent index at which it appeared."},
+    {q:"When does left jump forward?", a:"When the current character's last-seen index is inside the current window (>= left)."},
+    {q:"Time complexity?", a:"O(n) — each index is visited once, and left only ever moves forward."}
+  ]
+},
+
+"String||Sliding Window||Minimum Window Substring": {
+  build: buildMinWindowSubstring,
+  problem: "Find the smallest substring of s that contains every character of t (including duplicates).",
+  concept: "Track how many distinct required characters are currently 'fully satisfied' in the window (formed) versus how many are needed (required). Expand right, and whenever formed reaches required, the window is valid — shrink from the left as far as possible while recording the smallest valid window seen, then continue expanding.",
+  keywords: ["minimum window substring","contains all characters","formed vs required","expand shrink two maps"],
+  questions: ["Do I need the smallest window containing all of some required set of characters, counts included?","Can I track a single counter (formed) that increments/decrements instead of comparing two full frequency maps every step?","Does shrinking the window only make sense once every requirement is currently met?"],
+  eli10: "You're packing a suitcase and need at least one of each item from a shopping list, but you can only check your whole list against your suitcase most efficiently by counting 'how many items on my list are fully packed now' rather than checking every item every time. Once everything is packed, you take things out from the oldest packed items first, checking after each removal whether your suitcase is still complete.",
+  pitfalls: ["Comparing entire frequency maps for equality every step instead of maintaining a single 'formed' counter — that turns an O(n) algorithm into something much slower.","Forgetting that t can have duplicate characters, so 'need' must count occurrences, not just track which characters are required.","Off-by-one errors in the final substring extraction — minStart and minLen must be captured at the exact moment the window is valid, before shrinking invalidates it."],
+  complexityTime:"O(n + m)", complexitySpace:"O(charset size)", complexityScale:2,
+  complexityNote:"s (length n) and t (length m) are each scanned a constant number of times; right and left each move forward at most n times total.",
+  memoryStack:["left (int)","right (int)","formed (int)","minLen (int)","minStart (int)"],
+  memoryHeap:"Two HashMaps: need (fixed, built from t) and window (grows/shrinks as s is scanned).",
+  comparison:[
+    {name:"Variable Size Sliding Window (sum-based)", diff:"That pattern's validity check is a simple numeric comparison (sum >= target); this pattern's validity check is 'do all required characters currently appear enough times', tracked via the formed counter."},
+    {name:"Anagram / Permutation in String", diff:"Anagram check uses a fixed window size and exact frequency equality; minimum window substring's window size varies and only needs 'at least as many', not exact equality."}
+  ],
+  tips: ["'Smallest substring containing all characters of X' is the strongest signal for this pattern.","Build need once up front from t, then never touch it again — only window and formed change during the scan.","formed only changes exactly at the moment a character's count crosses into or out of satisfying need — increment/decrement it right at that comparison, nowhere else."],
+  flash: [
+    {q:"What does 'formed' count?", a:"How many distinct required characters currently have enough occurrences in the window to satisfy t."},
+    {q:"When does the window start shrinking?", a:"As soon as formed equals required — i.e. the window currently contains everything needed."},
+    {q:"Time complexity?", a:"O(n + m) — s and t are each processed a constant number of times."}
+  ]
+},
+
+"String||Sliding Window||Anagram / Permutation in String": {
+  build: buildAnagramInString,
+  problem: "Check whether s2 contains any contiguous substring that is a permutation (anagram) of s1.",
+  concept: "Since a permutation just rearranges the same characters, any window of s2 with the exact same character-frequency map as s1 is a match. Slide a fixed-size window of length |s1| across s2, adding the incoming character and removing the outgoing one, and compare the window's frequency map to s1's after every slide.",
+  keywords: ["permutation in string","anagram substring","fixed window frequency match","find all anagrams"],
+  questions: ["Is the window size fixed at exactly the length of the pattern string?","Does 'matching' mean the same character counts in any order, not an exact character-by-character match?","Would I otherwise need to re-sort or re-count every window from scratch?"],
+  eli10: "Imagine you have a bag of exactly the right Scrabble tiles for a word, and you slide a same-sized window across a long strip of letters, checking at each position whether the letters under your window are exactly the tiles in your bag — in any order. You don't need the letters in the same sequence, just the same collection.",
+  pitfalls: ["Comparing sorted substrings instead of frequency counts — sorting each window is O(k log k) per window instead of O(1) with a running frequency diff.","Forgetting this is a fixed-size window (size = |s1|) — sliding logic here is simpler than variable-size windows since size never changes.","Comparing full 26-length frequency arrays every single step naively — tracking a small 'matches' counter (like in minimum window substring's formed) is faster, though comparing directly is still O(26) which is effectively O(1)."],
+  complexityTime:"O(n)", complexitySpace:"O(charset size)", complexityScale:2,
+  complexityNote:"Each character enters and leaves the window exactly once; comparing frequency maps of a bounded alphabet is O(1) per step, so total time is linear in |s2|.",
+  memoryStack:["i (int)","k (int)"],
+  memoryHeap:"Two frequency maps (or int[26] arrays in Java): need (fixed, from s1) and window (slides across s2).",
+  comparison:[
+    {name:"Fixed Size Sliding Window (sum)", diff:"Same fixed-window sliding mechanics, but the aggregate compared is a frequency map/equality check instead of a running numeric sum."},
+    {name:"Minimum Window Substring", diff:"That pattern's window size varies and only needs 'contains at least', not exact equality; anagram matching needs an exact frequency match at a fixed size."}
+  ],
+  tips: ["'Find all anagrams' or 'permutation in string' is the strongest signal for a fixed-size frequency-matching window.","In Java, int[26] arrays are usually faster than HashMaps here since the alphabet is fixed and small — use Arrays.equals for the comparison.","This is really fixed-size sliding window (Array pattern) applied to frequency maps instead of sums — recognizing that connection makes the code almost write itself."],
+  flash: [
+    {q:"What makes two windows a match here?", a:"Having the exact same character frequency counts, regardless of order."},
+    {q:"Is the window size fixed or variable?", a:"Fixed — always the length of s1."},
+    {q:"Time complexity?", a:"O(n) — each character enters and leaves the window once, and frequency comparison over a bounded alphabet is O(1)."}
   ]
 }
 };
@@ -835,6 +1586,10 @@ function renderCode(codeLines, activeLine){
 function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function renderStructure(patternData, step, containerId){
+  if(patternData.structureType === 'grid'){
+    renderGridStructure(patternData, step, containerId);
+    return;
+  }
   const el = document.getElementById(containerId);
   const arr = step.arrOverride || patternData.arr;
   const cellColors = step.cellColors || {};
@@ -855,6 +1610,26 @@ function renderStructure(patternData, step, containerId){
     html += `<div class="stack-label">Call stack (indices waiting for an answer)</div>`;
     html += `<div class="stack-panel">${(step.stack||[]).map(idx=>`<div class="stack-chip">idx ${idx} (val ${patternData.arr[idx]})</div>`).join('') || '<span style="color:var(--muted-2);font-family:var(--mono);font-size:11px;">empty</span>'}</div>`;
   }
+  el.innerHTML = html;
+}
+
+function renderGridStructure(patternData, step, containerId){
+  const el = document.getElementById(containerId);
+  const grid = step.gridOverride || patternData.grid;
+  const cellColors = step.cellColors || {};
+  const ptr = step.gridPointer;
+  let html = `<div class="grid-wrap">`;
+  grid.forEach((row,r)=>{
+    html += `<div class="arr-row" style="margin-bottom:6px;">`;
+    row.forEach((v,c)=>{
+      const key = r+'-'+c;
+      const cls = cellColors[key] ? ` c-${cellColors[key]}` : '';
+      const marker = (ptr && ptr.r===r && ptr.c===c) ? `<span class="idx-label">${ptr.label||''}</span>` : '';
+      html += `<div class="cell${cls}">${marker}${v}</div>`;
+    });
+    html += `</div>`;
+  });
+  html += `</div>`;
   el.innerHTML = html;
 }
 
@@ -908,7 +1683,8 @@ function sectionBodyBuilt(idx, patternName, pdata, meta){
   switch(idx){
     case 0: // reference code
       return renderCode(pdata.code, -1);
-    case 1: // your code + live debugger
+    case 1: { // your code + live debugger
+      const structLabel = pdata.structureType==='stack' ? 'Array + Stack' : (pdata.structureType==='grid' ? 'Matrix' : 'Array');
       return `
         <div class="dbg">
           <div>
@@ -927,9 +1703,10 @@ function sectionBodyBuilt(idx, patternName, pdata, meta){
           <div class="dbg-right">
             <div class="dbg-vars"><h5>Variables</h5><div id="${wrapperId}-vars"></div></div>
             <div class="dbg-msg" id="${wrapperId}-msg"></div>
-            <div class="dbg-vars"><h5>${pdata.structureType==='stack'?'Array + Stack':'Array'}</h5><div class="struct-wrap" id="${wrapperId}-struct"></div></div>
+            <div class="dbg-vars"><h5>${structLabel}</h5><div class="struct-wrap" id="${wrapperId}-struct"></div></div>
           </div>
         </div>`;
+    }
     case 2: // concept
       return `<div class="prose"><p><b style="color:var(--muted);">Problem:</b> ${pdata.problem}</p><p>${pdata.concept}</p></div>`;
     case 3: // keywords
