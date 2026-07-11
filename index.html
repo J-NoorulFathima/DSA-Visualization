@@ -251,7 +251,7 @@
     <section id="home">
       <div class="hero-eyebrow">// 16 categories · one language · zero shortcuts</div>
       <h2>Every DSA pattern, <span>mapped</span> — a first batch fully <span>built</span>.</h2>
-      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>33 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
+      <p class="lede">Building genuine working visualizations for all ~95 patterns in one pass isn't realistic without dropping quality, so here's the honest version: a real trace-based debugger engine — line highlighting, live variables, moving pointers, a stack view, a grid view — wired up end-to-end for <code>34 patterns</code> spanning arrays, strings, hash maps, a stack pattern, and DP. Everything else stays as outline until it gets the same treatment.</p>
 
       <div class="stat-row" id="stat-row"></div>
 
@@ -271,7 +271,7 @@
     </section>
   </div>
 
-  <footer>// end of file · wave 14: 33/95 patterns fully built · rest follow the same engine on request</footer>
+  <footer>// end of file · wave 15: 34/95 patterns fully built · rest follow the same engine on request</footer>
 </main>
 
 <script>
@@ -843,6 +843,39 @@ function buildDecreasingStackPreviousGreater(){
     steps.push({line:7,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Push index ${i} — it may itself be the "previous greater" answer for some element still to come, so it stays on the stack until something bigger or equal arrives.`});
   }
   steps.push({line:8,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:`Done. result = [${result.join(', ')}] — the previous greater element for each position (or -1 if none exists).`});
+  return {steps,code,arr,structureType:'stack'};
+}
+
+/* ===================== PATTERN 12d: Nearest Element – Previous Variants (Previous Smaller Element) ===================== */
+function buildPreviousVariants(){
+  const arr=[3,7,1,7,8,4,2];
+  const code=[
+"Deque<Integer> stack = new ArrayDeque<>();",
+"int[] result = new int[arr.length];",
+"for (int i = 0; i < arr.length; i++) {",
+"    while (!stack.isEmpty() && arr[stack.peek()] >= arr[i]) {",
+"        stack.pop();",
+"    }",
+"    result[i] = stack.isEmpty() ? -1 : arr[stack.peek()];",
+"    stack.push(i);",
+"}"];
+  const steps=[]; const stack=[]; const result=new Array(arr.length).fill(-1);
+  steps.push({line:1,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:'Start with an empty stack and result array. The stack will always hold indices whose values increase from bottom to top — the top is always the nearest still-standing candidate for the "previous smaller" answer.'});
+  for(let i=0;i<arr.length;i++){
+    steps.push({line:2,vars:{i,'arr[i]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Looking at index ${i} (value ${arr[i]}).`});
+    while(stack.length && arr[stack[stack.length-1]]>=arr[i]){
+      const popped=stack.pop();
+      steps.push({line:4,vars:{i,popped,'arr[popped]':arr[popped]},pointers:[{idx:i,label:'i',color:'amber'},{idx:popped,label:'pop',color:'rose'}],cellColors:{[popped]:'rose',[i]:'amber'},stack:[...stack],msg:`arr[${popped}]=${arr[popped]} is >= arr[${i}]=${arr[i]} — it can never be a "previous smaller" for anything from here on, since ${arr[i]} is at least as small and closer. Pop it, keeping the stack increasing.`});
+    }
+    const ans = stack.length ? arr[stack[stack.length-1]] : -1;
+    result[i]=ans;
+    const withPrev = stack.length ? [{idx:i,label:'i',color:'amber'},{idx:stack[stack.length-1],label:'prev',color:'violet'}] : [{idx:i,label:'i',color:'amber'}];
+    const cc = stack.length ? {[stack[stack.length-1]]:'violet',[i]:'amber'} : {[i]:'rose'};
+    steps.push({line:6,vars:{i,'result[i]':ans},pointers:withPrev,cellColors:cc,stack:[...stack],msg: stack.length? `The new top of the stack, arr[${stack[stack.length-1]}]=${ans}, is the nearest still-standing value to the left that's smaller than arr[${i}] — that's its previous smaller element.` : `Nothing left on the stack — no element to the left of index ${i} is smaller than arr[${i}]=${arr[i]}. result[${i}] = -1.`});
+    stack.push(i);
+    steps.push({line:7,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Push index ${i} — it may itself be the "previous smaller" answer for some element still to come, so it stays on the stack until something smaller-or-equal arrives.`});
+  }
+  steps.push({line:8,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:`Done. result = [${result.join(', ')}] — the previous smaller element for each position (or -1 if none exists).`});
   return {steps,code,arr,structureType:'stack'};
 }
 
@@ -2209,6 +2242,30 @@ const PATTERNS_DB = {
   flash: [
     {q:"What invariant does a decreasing monotonic stack maintain?", a:"Its values decrease from bottom to top — bigger values sit below smaller ones."},
     {q:"What comparison triggers a pop here?", a:"Popping happens while the top of the stack is LESS THAN OR EQUAL TO the current element — those values can never be a previous-greater answer for anything later."},
+    {q:"Time / space complexity?", a:"O(n) time (amortized — each index pushed and popped at most once), O(n) space for the stack and result array."}
+  ]
+},
+
+"Stack||Nearest Element||Previous Variants": {
+  build: buildPreviousVariants,
+  problem: "For every element, find the nearest element to its LEFT that is strictly smaller (Previous Smaller Element) — the natural sibling question to Next Greater and Next Smaller.",
+  concept: "Walk left to right, keeping a stack of indices whose values increase from bottom to top. Before deciding the current element's answer, pop off everything on top of the stack that is >= the current value, since a bigger-or-equal earlier value can never be the previous-smaller answer for anything further along once a smaller, closer value exists. Whatever remains on top of the stack (if anything) is exactly the current element's nearest smaller value to the left; then push the current index so it can serve as an answer for later elements.",
+  keywords: ["previous smaller element","previous variants","nearest smaller to the left","monotonic stack","stock span variant","trapping rain water setup"],
+  questions: ["Do I need, for each element, the nearest SMALLER element to its LEFT, rather than to its right?","Can I keep a stack whose values increase from bottom to top, so the top is always the closest still-valid candidate?","Would a naive nested scan looking backward from every element be an O(n²) brute force I can collapse to O(n)?"],
+  eli10: "Picture a line of people facing right, and each person wants to know the height of the first shorter person standing somewhere behind them (to their left). As people join the line one at a time from the left, anyone already in line who is taller than or the same height as the new arrival can be forgotten immediately — the new, closer, shorter person will always be found first by anyone still to come. Whoever remains waiting in line is always arranged shortest at the back down to tallest at the front, which is exactly why the stack stays 'increasing'.",
+  pitfalls: ["Popping on '>' instead of '>=' — if the previous element is EQUAL to the current one, it should still be popped, since a later element needs the closer, at-least-as-small candidate, not a strictly smaller one further away.","Confusing this with 'Next Smaller' — that pattern scans for the nearest smaller element to the RIGHT and pops retroactively as smaller values arrive; this pattern answers immediately for the current element by looking at what's already survived on the stack to its LEFT.","Reading the answer off the stack AFTER pushing the current index instead of BEFORE — the current element itself must never be treated as its own previous smaller element."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Every index is pushed once and popped at most once across the entire scan — amortized O(1) per element, despite the nested-looking while loop.",
+  memoryStack:["i (int)","popped (int)"],
+  memoryHeap:"A Deque<Integer> stack of indices (kept increasing in value bottom-to-top), plus a result[] array of size n.",
+  comparison:[
+    {name:"Next Smaller (Nearest Element)", diff:"Next Smaller pops while the stack's top value is GREATER than the current element to answer for elements to the RIGHT, retroactively, as smaller values arrive; Previous Variants pops while the top is GREATER-OR-EQUAL and answers immediately for the current element by looking LEFT at what's already survived."},
+    {name:"Decreasing Monotonic Stack (Previous Greater)", diff:"Both answer 'looking left', but Previous Greater keeps a decreasing stack and pops anything <= current to find the nearest bigger value; Previous Variants keeps an increasing stack and pops anything >= current to find the nearest smaller value — the comparison direction and stack order both flip."}
+  ],
+  tips: ["Say the invariant out loud before coding: 'the stack's values increase from bottom to top, reading left to right' — then the pop condition (>= current) falls right out of that sentence.","'Previous smaller element' or 'nearest smaller to the left' in a problem statement is the strongest signal for this pattern.","Always read off the answer from the stack's new top BEFORE pushing the current index — otherwise the element would incorrectly see itself as its own answer. This exact building block also powers 'largest rectangle in histogram' and 'trapping rain water', just applied from both directions."],
+  flash: [
+    {q:"What invariant does the stack maintain in Previous Variants (previous smaller)?", a:"Its values increase from bottom to top — smaller values sit above bigger ones as you scan left to right."},
+    {q:"What comparison triggers a pop here?", a:"Popping happens while the top of the stack is GREATER THAN OR EQUAL TO the current element — those values can never be a previous-smaller answer for anything later."},
     {q:"Time / space complexity?", a:"O(n) time (amortized — each index pushed and popped at most once), O(n) space for the stack and result array."}
   ]
 },
