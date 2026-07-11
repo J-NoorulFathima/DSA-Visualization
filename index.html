@@ -1812,6 +1812,171 @@ function buildStockSpan(){
   return {steps,code,arr,structureType:'stack'};
 }
 
+  /* ===================== PATTERN: Stack – Min / Max Stack ===================== */
+function buildMinMaxStack(){
+  const ops = [
+    {type:'push', val:5},
+    {type:'push', val:1},
+    {type:'push', val:5},
+    {type:'getMin'},
+    {type:'getMax'},
+    {type:'pop'},
+    {type:'getMin'},
+    {type:'push', val:3},
+    {type:'getMax'},
+    {type:'pop'},
+    {type:'pop'},
+    {type:'getMin'}
+  ];
+  const code=[
+"Deque<int[]> stack = new ArrayDeque<>(); // each entry: {val, currMin, currMax}",
+"void push(int val) {",
+"    int currMin = stack.isEmpty() ? val : Math.min(val, stack.peek()[1]);",
+"    int currMax = stack.isEmpty() ? val : Math.max(val, stack.peek()[2]);",
+"    stack.push(new int[]{val, currMin, currMax});",
+"}",
+"void pop() { stack.pop(); }",
+"int top() { return stack.peek()[0]; }",
+"int getMin() { return stack.peek()[1]; }",
+"int getMax() { return stack.peek()[2]; }"];
+
+  const steps=[];
+  const arr=[];        // pushed values, in push order (index = push order)
+  const triples=[];    // {idx,val,min,max} currently on the real stack, top = last
+  let pushCount=0;
+  const currentIndices=()=>triples.map(t=>t.idx);
+
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},stack:[],msg:'Each stack entry stores three numbers together: the value itself, and the min/max of everything at-or-below it — so both queries become an O(1) peek, no scanning needed.'});
+
+  ops.forEach(op=>{
+    if(op.type==='push'){
+      const idx=pushCount; arr.push(op.val); pushCount++;
+      steps.push({line:1,vars:{val:op.val},pointers:[{idx,label:'val',color:'amber'}],cellColors:{[idx]:'amber'},stack:currentIndices(),msg:`push(${op.val}) called.`});
+
+      const prevMin = triples.length ? triples[triples.length-1].min : op.val;
+      const prevMax = triples.length ? triples[triples.length-1].max : op.val;
+
+      const currMin = triples.length ? Math.min(op.val, prevMin) : op.val;
+      steps.push({line:2,vars:{val:op.val,currMin},pointers:[{idx,label:'val',color:'amber'}],cellColors:{[idx]:'amber'},stack:currentIndices(),
+        msg: triples.length
+          ? `currMin = min(${op.val}, ${prevMin}) = ${currMin} — reuse the min already tracked one level below, no rescanning needed.`
+          : `Stack is empty — this first value defines its own min. currMin = ${op.val}.`});
+
+      const currMax = triples.length ? Math.max(op.val, prevMax) : op.val;
+      steps.push({line:3,vars:{val:op.val,currMax},pointers:[{idx,label:'val',color:'amber'}],cellColors:{[idx]:'amber'},stack:currentIndices(),
+        msg: triples.length
+          ? `currMax = max(${op.val}, ${prevMax}) = ${currMax} — same idea for the max.`
+          : `Stack is empty — this first value defines its own max. currMax = ${op.val}.`});
+
+      triples.push({idx,val:op.val,min:currMin,max:currMax});
+      steps.push({line:4,vars:{val:op.val,currMin,currMax},pointers:[{idx,label:'top',color:'violet'}],cellColors:{[idx]:'violet'},stack:currentIndices(),
+        msg:`Push the triple {val:${op.val}, min:${currMin}, max:${currMax}} — this one entry now carries everything needed to answer getMin/getMax instantly, no matter what gets pushed above it.`});
+
+    } else if(op.type==='pop'){
+      const popped = triples.pop();
+      steps.push({line:6,
+        vars:{popped: popped ? popped.val : undefined},
+        pointers: popped ? [{idx:popped.idx,label:'pop',color:'rose'}] : [],
+        cellColors: popped ? {[popped.idx]:'rose'} : {},
+        stack:currentIndices(),
+        msg: popped
+          ? `pop() removes the top triple {val:${popped.val}, min:${popped.min}, max:${popped.max}} entirely — min and max automatically revert to whatever the new top already has stored, no recomputation.`
+          : 'pop() called on an empty stack.'});
+
+    } else if(op.type==='getMin'){
+      const top = triples[triples.length-1];
+      steps.push({line:8,
+        vars:{'stack.peek()[1]': top ? top.min : undefined},
+        pointers: top ? [{idx:top.idx,label:'min',color:'teal'}] : [],
+        cellColors: top ? {[top.idx]:'teal'} : {},
+        stack:currentIndices(),
+        msg: top
+          ? `getMin() just peeks at the top triple's stored min — ${top.min}. No scanning the rest of the stack at all.`
+          : 'Stack is empty.'});
+
+    } else if(op.type==='getMax'){
+      const top = triples[triples.length-1];
+      steps.push({line:9,
+        vars:{'stack.peek()[2]': top ? top.max : undefined},
+        pointers: top ? [{idx:top.idx,label:'max',color:'violet'}] : [],
+        cellColors: top ? {[top.idx]:'violet'} : {},
+        stack:currentIndices(),
+        msg: top
+          ? `getMax() peeks at the top triple's stored max — ${top.max}. Also O(1), same trick.`
+          : 'Stack is empty.'});
+    }
+  });
+
+  steps.push({line:9,vars:{},pointers:[],cellColors:{},stack:currentIndices(),
+    msg:`Done. Every push carries its own min/max snapshot alongside it, so push, pop, getMin, and getMax are all O(1) — the stack never needs to be rescanned to answer a query.`});
+
+  return {steps,code,arr,structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Stack – Expression Handling (Evaluate Postfix / RPN) ===================== */
+function buildExpressionHandling(){
+  const tokens = ["2","1","+","3","*"]; // (2 + 1) * 3 = 9
+  const isOperator = (t)=> t==='+'||t==='-'||t==='*'||t==='/';
+  const applyOp = (a,b,op)=>{
+    switch(op){
+      case '+': return a+b;
+      case '-': return a-b;
+      case '*': return a*b;
+      case '/': return Math.trunc(a/b);
+    }
+  };
+  const code=[
+"Deque<Integer> stack = new ArrayDeque<>();",
+"for (String token : tokens) {",
+"    if (isOperator(token)) {",
+"        int b = stack.pop();",
+"        int a = stack.pop();",
+"        int result = applyOp(a, b, token);",
+"        stack.push(result);",
+"    } else {",
+"        stack.push(Integer.parseInt(token));",
+"    }",
+"}",
+"return stack.pop();"];
+
+  const steps=[];
+  const stack=[]; // stores numeric values, top = last
+
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:'Postfix (Reverse Polish) notation puts operators AFTER their operands, so no parentheses or precedence rules are ever needed — a single left-to-right scan with a stack is enough to evaluate it.'});
+
+  for(let i=0;i<tokens.length;i++){
+    const token = tokens[i];
+    steps.push({line:1,vars:{i,token},pointers:[{idx:i,label:'token',color:'amber'}],cellColors:{[i]:'amber'},stack:[...stack],msg:`Reading token "${token}".`});
+
+    if(isOperator(token)){
+      steps.push({line:2,vars:{token},pointers:[{idx:i,label:'op',color:'violet'}],cellColors:{[i]:'violet'},stack:[...stack],msg:`"${token}" is an operator — it needs its two operands, which are always the two values most recently pushed.`});
+
+      const b = stack.pop();
+      steps.push({line:3,vars:{b},pointers:[{idx:i,label:'op',color:'violet'}],cellColors:{[i]:'violet'},stack:[...stack],msg:`Pop b = ${b} — the operator's RIGHT-hand operand, since it was pushed most recently.`});
+
+      const a = stack.pop();
+      steps.push({line:4,vars:{a,b},pointers:[{idx:i,label:'op',color:'violet'}],cellColors:{[i]:'violet'},stack:[...stack],msg:`Pop a = ${a} — the operator's LEFT-hand operand. Order matters here: a came before b in the original expression.`});
+
+      const result = applyOp(a,b,token);
+      steps.push({line:5,vars:{a,b,token,result},pointers:[{idx:i,label:'op',color:'violet'}],cellColors:{[i]:'violet'},stack:[...stack],msg:`result = a ${token} b = ${a} ${token} ${b} = ${result}`});
+
+      stack.push(result);
+      steps.push({line:6,vars:{result},pointers:[{idx:i,label:'push',color:'teal'}],cellColors:{[i]:'teal'},stack:[...stack],msg:`Push the result (${result}) back onto the stack — it may itself become an operand for a later operator.`});
+
+    } else {
+      steps.push({line:8,vars:{token},pointers:[{idx:i,label:'num',color:'teal'}],cellColors:{[i]:'teal'},stack:[...stack],msg:`"${token}" is a number, not an operator — just push it and keep scanning.`});
+      const num = parseInt(token,10);
+      stack.push(num);
+      steps.push({line:9,vars:{pushed:num},pointers:[{idx:i,label:'push',color:'teal'}],cellColors:{[i]:'teal'},stack:[...stack],msg:`Pushed ${num} onto the stack.`});
+    }
+  }
+
+  const finalResult = stack[stack.length-1];
+  steps.push({line:12,vars:{result:finalResult},pointers:[],cellColors:{},stack:[...stack],msg:`Done. Every token has been processed — exactly one value remains on the stack, the final answer: ${finalResult}.`});
+
+  return {steps,code,arr:tokens,structureType:'stack'};
+}
+
 /* ===================== PATTERNS_DB ===================== */
 const PATTERNS_DB = {
 "Array||Two Pointers||Opposite Ends": {
@@ -2655,6 +2820,54 @@ const PATTERNS_DB = {
     {q:"What does the stack hold in the span pattern?", a:"Indices of days, kept so their prices decrease from bottom to top."},
     {q:"How is span[i] computed once the stack is correct?", a:"i - stack.peek() if the stack isn't empty (distance to the last day with a higher price), otherwise i + 1."},
     {q:"Time / space complexity?", a:"O(n) time (amortized — each index pushed and popped at most once), O(n) space for the stack and span array."}
+  ]
+},
+
+"Stack||Other Stack Patterns||Min / Max Stack": {
+  build: buildMinMaxStack,
+  problem: "Design a stack that supports push, pop, top, and retrieving the minimum and maximum element, all in O(1) time.",
+  concept: "A plain stack only ever gives you O(1) access to the top — finding the min or max normally means scanning the whole stack. Fix that by having every entry carry its own snapshot: instead of pushing just a value, push a small triple {val, currMin, currMax}, where currMin/currMax are computed by comparing the new value against whatever the previous top already had stored. Because each triple already 'knows' the min/max of everything at or below it, getMin() and getMax() become a plain peek — and popping an entry automatically restores the correct min/max of what's left, since the new top already has its own correct snapshot baked in.",
+  keywords: ["min stack","max stack","O(1) getMin","O(1) getMax","auxiliary stack","stack of triples","constant time min/max"],
+  questions: ["Do I need O(1) access to the minimum or maximum of a stack, not just its top?","Does every push/pop need to keep that min/max answer instantly correct, without rescanning?","Can I attach extra bookkeeping to each stack entry instead of maintaining a separate structure that could get out of sync?"],
+  eli10: "Imagine stacking plates, and on the bottom of every single plate you write down the smallest and biggest plate size anywhere in the stack up to that point. You never have to lift plates up and look through the whole stack to find the smallest one — you just flip over the top plate and read the number that's already written there. Take a plate away, and the plate now on top already has its own correct numbers written on it from when it was placed.",
+  pitfalls: ["Using a single separate 'minStack' that only pushes when a new minimum appears — that breaks on pop, since you don't know whether the popped value was tied with the current minimum unless you push a min-snapshot on every single push, not just on new minimums.","Storing only currMin (for a 'min stack' problem) but forgetting the same idea extends symmetrically to currMax for a combined min/max stack — the two are computed completely independently, using the previous top's min and max respectively.","Trying to recompute min/max by scanning the stack on every query 'just this once for simplicity' — that silently turns an O(1) operation into O(n), defeating the entire point of the pattern."],
+  complexityTime:"O(1) per operation", complexitySpace:"O(n)", complexityScale:0,
+  complexityNote:"Push, pop, top, getMin, and getMax are all O(1) — every triple already stores the answer, so no operation ever needs to look past the top of the stack. Space is O(n) since each of the n pushed elements carries its own extra pair of numbers alongside it.",
+  memoryStack:["val (int)","currMin (int)","currMax (int)"],
+  memoryHeap:"A Deque<int[]> stack where each element is a 3-slot array {val, currMin, currMax} — no separate auxiliary stack is needed.",
+  comparison:[
+    {name:"Monotonic Stack (Next Greater / Previous Greater)", diff:"Monotonic stacks pop elements away to maintain an ordering invariant as they scan; a min/max stack never pops early — every element stays until the caller explicitly pops it, and the invariant is maintained by what's written into each entry, not by discarding entries."},
+    {name:"Range / Span (Stock Span)", diff:"Stock span also stores extra info per stack entry (its index, to compute a distance), but only reads it once, when the entry becomes the new top's neighbor; min/max stack instead re-reads the stored min/max on every single query, for as long as that entry remains anywhere in the stack."}
+  ],
+  tips: ["Whenever a problem says 'design a stack that also supports getMin/getMax in O(1)', immediately think 'bundle the answer into every push' rather than maintaining a separate structure.","Say the recurrence out loud: 'this entry's min = min(my value, the min already stored one level below me)' — that one sentence is the entire algorithm.","This same 'carry a running answer inside each stack entry' idea generalizes to other O(1)-query stack problems, like a stack that also supports O(1) getSum or O(1) getMedian-of-recent-k with more bookkeeping."],
+  flash: [
+    {q:"What does each stack entry store, beyond the value itself?", a:"The min and max of everything at or below it in the stack — computed once, at push time."},
+    {q:"How is currMin computed when pushing a new value?", a:"min(newValue, previous top's currMin) — or just newValue itself if the stack was empty."},
+    {q:"Time complexity of push, pop, getMin, and getMax?", a:"All O(1) — every query is a direct peek at the top entry's stored fields, never a scan."}
+  ]
+},
+
+"Stack||Other Stack Patterns||Expression Handling": {
+  build: buildExpressionHandling,
+  problem: "Evaluate an arithmetic expression written in postfix (Reverse Polish) notation, e.g. [\"2\",\"1\",\"+\",\"3\",\"*\"] representing (2 + 1) * 3.",
+  concept: "In postfix notation, every operator comes AFTER its two operands, which eliminates the need for parentheses or precedence rules entirely — the expression can be evaluated left to right in a single pass. Scan the tokens: push numbers straight onto a stack; when an operator is found, pop the two most recently pushed values (b, then a — b is the right-hand operand since it was pushed last), apply the operator as a op b, and push the result back. After the last token, exactly one value remains on the stack — the final answer.",
+  keywords: ["postfix evaluation","reverse polish notation","expression stack","operator precedence via stack","infix to postfix","calculator problem"],
+  questions: ["Does the expression need operators and operands resolved in a strict left-to-right order without worrying about precedence or parentheses?","Can I treat 'numbers get pushed, operators pop two and push one result' as the entire algorithm?","Is order important when popping the two operands — does the operator need to know which one came first (for non-commutative ops like - and /)?"],
+  eli10: "Imagine reading instructions written backwards-friendly, like handing someone number cards one at a time and telling them to stack them in a pile. Whenever you hand them an operator card instead of a number, they grab the top two cards off the pile, do the math, and put the single answer card back on top. By the time you've handed over every card, only one card is left in the pile — that's the answer.",
+  pitfalls: ["Popping the operands in the wrong order — for '-' and '/', a op b is NOT the same as b op a, so the first pop must be assigned to b (right-hand operand) and the second pop to a (left-hand operand), not the other way around.","Trying to apply this same stack trick directly to INFIX expressions (like \"2 + 1 * 3\") without first converting to postfix — infix needs precedence and parentheses handling (e.g. via the shunting-yard algorithm) before a plain stack scan works.","Forgetting to handle division truncation/rounding consistently, or assuming the expression is always well-formed — a malformed postfix expression (too many operators, too few operands) will pop from an empty stack."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Each token is processed exactly once — pushed once, and popped at most once (as either an operand or an intermediate result) — so both scanning and stack operations stay linear in the number of tokens.",
+  memoryStack:["token (String)","a, b (int)","result (int)"],
+  memoryHeap:"A Deque<Integer> stack holding numeric values (operands and intermediate results) as the token list is scanned.",
+  comparison:[
+    {name:"Min / Max Stack", diff:"Min/Max stack bundles extra running info into every push to answer O(1) queries; expression handling instead uses the stack purely to hold pending operands until an operator consumes exactly two of them."},
+    {name:"Monotonic Stack (Next Greater / Previous Greater)", diff:"Monotonic stacks pop based on comparing VALUES to maintain an ordering invariant as they scan; expression handling pops based on TOKEN TYPE (operator vs number) — a completely different trigger — and never maintains any ordering."}
+  ],
+  tips: ["'Postfix' or 'Reverse Polish Notation' in a problem statement is the direct, unambiguous signal for this exact stack pattern — no precedence logic is ever needed.","Say the pop order out loud before coding: 'first pop is b (right operand), second pop is a (left operand)' — getting this backwards silently breaks subtraction and division.","This is also the standard second half of the classic infix→postfix→evaluate pipeline: shunting-yard (or a precedence-aware parser) converts infix to postfix, and then this exact stack-scan evaluates it."],
+  flash: [
+    {q:"Why does postfix notation need no parentheses or precedence rules?", a:"Because every operator appears immediately after both of its operands, so a simple left-to-right stack scan resolves the expression unambiguously."},
+    {q:"When popping two operands for an operator, which one is the right-hand operand — the first pop or the second?", a:"The first pop is b, the right-hand operand, since it was pushed most recently; the second pop is a, the left-hand operand."},
+    {q:"Time / space complexity?", a:"O(n) time and O(n) space — every token is pushed and popped at most once as the stack holds pending operands and results."}
   ]
 }
 
