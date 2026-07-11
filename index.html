@@ -9871,8 +9871,12 @@ function renderStructure(patternData, step, containerId){
   });
   html += `</div>`;
   if(patternData.structureType === 'stack'){
-    html += `<div class="stack-label">Call stack (indices waiting for an answer)</div>`;
-    html += `<div class="stack-panel">${(step.stack||[]).map(idx=>`<div class="stack-chip">idx ${idx} (val ${patternData.arr[idx]})</div>`).join('') || '<span style="color:var(--muted-2);font-family:var(--mono);font-size:11px;">empty</span>'}</div>`;
+    html += `<div class="stack-label">Call stack (indices / values waiting for an answer)</div>`;
+    html += `<div class="stack-panel">${(step.stack||[]).map(idx=>{
+      const known = patternData.arr[idx];
+      const label = (known !== undefined) ? `idx ${idx} (val ${known})` : `val ${idx}`;
+      return `<div class="stack-chip">${label}</div>`;
+    }).join('') || '<span style="color:var(--muted-2);font-family:var(--mono);font-size:11px;">empty</span>'}</div>`;
   }
   el.innerHTML = html;
 }
