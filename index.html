@@ -1746,6 +1746,39 @@ function buildGroupingPattern(){
   return {steps,code,arr,structureType:'array'};
 }
 
+  /* ===================== PATTERN: Stack – Range / Span (Stock Span Problem) ===================== */
+function buildStockSpan(){
+  const arr=[100,80,60,70,60,75,85];
+  const code=[
+"Deque<Integer> stack = new ArrayDeque<>();",
+"int[] span = new int[prices.length];",
+"for (int i = 0; i < prices.length; i++) {",
+"    while (!stack.isEmpty() && prices[stack.peek()] <= prices[i]) {",
+"        stack.pop();",
+"    }",
+"    span[i] = stack.isEmpty() ? i + 1 : i - stack.peek();",
+"    stack.push(i);",
+"}"];
+  const steps=[]; const stack=[]; const span=new Array(arr.length).fill(0);
+  steps.push({line:1,vars:{},pointers:[],cellColors:{},stack:[...stack],msg:'Start with an empty stack and a span array of zeros. The stack will always hold indices whose prices decrease from bottom to top — the top marks the nearest earlier day whose price was still higher than today\'s.'});
+  for(let i=0;i<arr.length;i++){
+    steps.push({line:2,vars:{i,'prices[i]':arr[i]},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Looking at day ${i} (price ${arr[i]}).`});
+    while(stack.length && arr[stack[stack.length-1]]<=arr[i]){
+      const popped=stack.pop();
+      steps.push({line:4,vars:{i,popped,'prices[popped]':arr[popped]},pointers:[{idx:i,label:'i',color:'amber'},{idx:popped,label:'pop',color:'rose'}],cellColors:{[popped]:'rose',[i]:'amber'},stack:[...stack],msg:`prices[${popped}]=${arr[popped]} is <= prices[${i}]=${arr[i]} — it can never cap today's span, or any future day's span, once a price this high has appeared. Pop it.`});
+    }
+    const s = stack.length ? i-stack[stack.length-1] : i+1;
+    span[i]=s;
+    const withPrev = stack.length ? [{idx:i,label:'i',color:'amber'},{idx:stack[stack.length-1],label:'prev',color:'violet'}] : [{idx:i,label:'i',color:'amber'}];
+    const cc = stack.length ? {[stack[stack.length-1]]:'violet',[i]:'amber'} : {[i]:'rose'};
+    steps.push({line:6,vars:{i,'span[i]':s},pointers:withPrev,cellColors:cc,stack:[...stack],msg: stack.length? `The new top of the stack, day ${stack[stack.length-1]} (price ${arr[stack[stack.length-1]]}), is the nearest earlier day whose price was still higher — span[${i}] = i - stack.peek() = ${i} - ${stack[stack.length-1]} = ${s}.` : `Nothing left on the stack — no earlier day had a higher price than day ${i}. span[${i}] = i + 1 = ${s} (today counts as day one of its own streak).`});
+    stack.push(i);
+    steps.push({line:7,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Push day ${i} — it may itself set the ceiling for some future day's span, so it stays on the stack until a higher-or-equal price arrives.`});
+  }
+  steps.push({line:8,vars:{span:`[${span.join(', ')}]`},pointers:[],cellColors:{},stack:[...stack],msg:`Done. span = [${span.join(', ')}] — for every day, the number of consecutive days ending today (including today) whose price was <= today's price.`});
+  return {steps,code,arr,structureType:'stack'};
+}
+
 /* ===================== PATTERNS_DB ===================== */
 const PATTERNS_DB = {
 "Array||Two Pointers||Opposite Ends": {
@@ -2537,6 +2570,34 @@ const PATTERNS_DB = {
     {q:"What makes two words land in the same group here?", a:"Their letters, once sorted, produce the exact same signature string."},
     {q:"What does the hash map store — a value or a collection?", a:"A collection — Map<String, List<String>>, since many words can share one key."},
     {q:"Time complexity for n words of average length k?", a:"O(n · k log k) — each word's letters are sorted once, in O(k log k), across n words."}
+  ]
+},
+
+  "Stack||Other Stack Patterns||Range / Span": {
+  build: buildStockSpan,
+  problem: "Given a series of daily stock prices, find the 'span' of each day — the number of consecutive days ending today (including today) whose price was less than or equal to today's price.",
+  concept: "Walk left to right, keeping a stack of indices whose prices decrease from bottom to top. Before deciding today's span, pop off every earlier day whose price is <= today's — a day that cheap can never block today's streak, or any future day's, once today's higher price exists. Whatever remains on top of the stack is the nearest earlier day that was still more expensive than today, so today's span is simply the distance to it (i - stack.peek()), or i + 1 if the stack empties out completely.",
+  keywords: ["stock span problem","monotonic stack","span of consecutive days","distance to previous greater","nearest greater to the left"],
+  questions: ["Do I need, for each element, how far back a 'streak' extends where everything behind it is smaller or equal?","Can I express the answer as a distance to the nearest earlier element that breaks the streak (the nearest greater value to the left)?","Would a naive backward scan from every day be an O(n²) brute force I can collapse to O(n) with a stack?"],
+  eli10: "Imagine standing at a stock ticker, and for every day you want to know: how many days in a row, counting backwards from today, was the price never higher than today's? Instead of walking backwards from scratch every single day, you keep a stack of 'still relevant' earlier days. Any earlier day cheaper than or equal to today gets tossed out — it'll never matter again once today's higher price exists. Whoever's left on top of the stack is the last day that actually stopped a streak, so today's streak length is just the gap between that day and today.",
+  pitfalls: ["Popping on '<' instead of '<='  — a day with an EQUAL price should still be popped, since it can't be the reason a later streak breaks once a same-or-higher price exists closer by.",
+    "Reading the answer off the stack AFTER pushing today's index instead of BEFORE — today must never be treated as its own 'previous higher day'.",
+    "Confusing this with 'Next Greater' — that pattern looks forward and answers retroactively as bigger values arrive; span looks backward and answers immediately using whatever has already survived on the stack."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Every index is pushed once and popped at most once across the entire scan — amortized O(1) per day, despite the nested-looking while loop.",
+  memoryStack:["i (int)","popped (int)"],
+  memoryHeap:"A Deque<Integer> stack of indices (kept decreasing in price bottom-to-top), plus a span[] array of size n.",
+  comparison:[
+    {name:"Decreasing Monotonic Stack (Previous Greater)", diff:"Span IS a decreasing monotonic stack — it just reports the distance (i - stack.peek()) to the previous greater element instead of the previous greater element's value itself."},
+    {name:"Next Greater (Nearest Element)", diff:"Next Greater answers for elements to the RIGHT, retroactively, as bigger values arrive later; span answers for the current day immediately, by looking at what has already survived on the stack to its LEFT."}
+  ],
+  tips: ["'Span' or 'how many consecutive days back' is the strongest signal this is really 'distance to the previous greater element' wearing a different name.",
+    "Say the invariant out loud before coding: 'the stack's prices decrease from bottom to top' — the pop condition (<= today) falls right out of that sentence.",
+    "Always compute span from the stack's new top BEFORE pushing today's index — otherwise today would incorrectly count itself as its own boundary."],
+  flash: [
+    {q:"What does the stack hold in the span pattern?", a:"Indices of days, kept so their prices decrease from bottom to top."},
+    {q:"How is span[i] computed once the stack is correct?", a:"i - stack.peek() if the stack isn't empty (distance to the last day with a higher price), otherwise i + 1."},
+    {q:"Time / space complexity?", a:"O(n) time (amortized — each index pushed and popped at most once), O(n) space for the stack and span array."}
   ]
 }
 
