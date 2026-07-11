@@ -1977,6 +1977,1561 @@ function buildExpressionHandling(){
   return {steps,code,arr:tokens,structureType:'stack'};
 }
 
+  /* ===================== PATTERN: Stack – Histogram Pattern (Largest Rectangle in Histogram) ===================== */
+function buildHistogramPattern(){
+  const arr=[2,1,5,6,2,3];
+  const code=[
+"Deque<Integer> stack = new ArrayDeque<>();",
+"int maxArea = 0;",
+"for (int i = 0; i <= heights.length; i++) {",
+"    int h = (i == heights.length) ? 0 : heights[i];",
+"    while (!stack.isEmpty() && heights[stack.peek()] >= h) {",
+"        int height = heights[stack.pop()];",
+"        int width = stack.isEmpty() ? i : i - stack.peek() - 1;",
+"        maxArea = Math.max(maxArea, height * width);",
+"    }",
+"    stack.push(i);",
+"}",
+"return maxArea;"];
+
+  const steps=[]; const stack=[]; let maxArea=0;
+  const n=arr.length;
+
+  steps.push({line:1,vars:{maxArea},pointers:[],cellColors:{},stack:[...stack],msg:'The stack holds indices whose heights increase from bottom to top. When a shorter bar appears, every taller bar still on the stack knows exactly how wide a rectangle it can form — bounded by this shorter bar on the right and by whatever is still standing on the left.'});
+
+  for(let i=0;i<=n;i++){
+    const h = (i===n) ? 0 : arr[i];
+    const barLabel = (i===n) ? 'end (h=0)' : `bar ${i} (h=${h})`;
+    steps.push({line:3,vars:{i,h},pointers: i<n ? [{idx:i,label:'i',color:'amber'}] : [],cellColors: i<n?{[i]:'amber'}:{},stack:[...stack],msg: i===n
+      ? `Reached the end of the array — push a sentinel height of 0 to force every remaining bar on the stack to be resolved.`
+      : `Looking at ${barLabel}.`});
+
+    while(stack.length && arr[stack[stack.length-1]]>=h){
+      const poppedIdx = stack.pop();
+      const height = arr[poppedIdx];
+      const width = stack.length ? (i - stack[stack.length-1] - 1) : i;
+      const area = height*width;
+      const improved = area>maxArea;
+
+      const leftBound = stack.length ? stack[stack.length-1] : -1;
+      const cc = {};
+      for(let k=leftBound+1; k<i; k++) cc[k]='violet';
+      cc[poppedIdx] = 'rose';
+
+      steps.push({line:5,vars:{poppedIdx,height},pointers: i<n ? [{idx:i,label:'i',color:'amber'},{idx:poppedIdx,label:'pop',color:'rose'}] : [{idx:poppedIdx,label:'pop',color:'rose'}],cellColors:{[poppedIdx]:'rose'},stack:[...stack],msg:`heights[${poppedIdx}]=${height} is >= ${h===0?'the sentinel 0':`heights[${i}]=${h}`} — it can never extend any further right, so pop it and resolve the rectangle it stands as the shortest bar of.`});
+
+      steps.push({line:6,vars:{poppedIdx,height,leftBound,width},pointers: i<n ? [{idx:i,label:'i',color:'amber'}] : [],cellColors:cc,stack:[...stack],msg: stack.length
+        ? `width = i - stack.peek() - 1 = ${i} - ${leftBound} - 1 = ${width} — bounded on the left by index ${leftBound} (still standing, so still shorter than height ${height} won't reach it) and on the right by index ${i}.`
+        : `Stack emptied — height ${height} is the shortest bar seen so far all the way from the start, so width = i = ${width}.`});
+
+      maxArea=Math.max(maxArea,area);
+      steps.push({line:7,vars:{height,width,area,maxArea},pointers: i<n ? [{idx:i,label:'i',color:'amber'}] : [],cellColors:cc,stack:[...stack],msg: improved
+        ? `area = height × width = ${height} × ${width} = ${area} — new best! maxArea = ${maxArea}`
+        : `area = ${height} × ${width} = ${area} — not better than the current best (${maxArea}).`});
+    }
+
+    if(i<n){
+      stack.push(i);
+      steps.push({line:9,vars:{i},pointers:[{idx:i,label:'i',color:'amber'}],cellColors:{},stack:[...stack],msg:`Push bar ${i} — it's taller than (or equal to) everything now on top of the stack, so it waits to see how far right its own rectangle can extend.`});
+    }
+  }
+
+  steps.push({line:11,vars:{maxArea},pointers:[],cellColors:{},stack:[...stack],msg:`Done. The largest rectangle that fits under the histogram has area ${maxArea}.`});
+
+  return {steps,code,arr,structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Queue – FIFO Processing (Number of Recent Calls) ===================== */
+function buildFifoProcessing(){
+  const arr=[1, 100, 3001, 3002]; // ping timestamps, in ms
+  const WINDOW=3000;
+  const code=[
+"Deque<Integer> queue = new ArrayDeque<>();",
+"int ping(int t) {",
+"    queue.offerLast(t);",
+"    while (queue.peekFirst() < t - 3000) {",
+"        queue.pollFirst();",
+"    }",
+"    return queue.size();",
+"}"];
+
+  const steps=[]; const queue=[]; // holds timestamps still inside the 3000ms window, oldest at front
+
+  steps.push({line:0,vars:{window:WINDOW},pointers:[],cellColors:{},stack:[...queue],msg:'A queue processes strictly first-in-first-out: every new ping is added at the BACK, and anything that has expired is removed from the FRONT — the two ends never trade roles.'});
+
+  for(let i=0;i<arr.length;i++){
+    const t=arr[i];
+    steps.push({line:1,vars:{i,t},pointers:[{idx:i,label:'t',color:'amber'}],cellColors:{[i]:'amber'},stack:[...queue],msg:`ping(${t}) called — a new request arrives at time ${t}.`});
+
+    queue.push(t);
+    steps.push({line:2,vars:{t},pointers:[{idx:i,label:'enq',color:'teal'}],cellColors:{[i]:'teal'},stack:[...queue],msg:`Enqueue ${t} at the BACK of the queue — it joins the line behind everyone already waiting.`});
+
+    steps.push({line:3,vars:{t,threshold:t-WINDOW,front:queue[0]},pointers:[{idx:i,label:'t',color:'amber'}],cellColors:{},stack:[...queue],msg:`Check the FRONT of the queue: is it older than t - 3000 = ${t-WINDOW}? A queue only ever needs to check its front — nothing further back could possibly be stale while the front isn't.`});
+
+    while(queue.length && queue[0] < t-WINDOW){
+      const expired=queue.shift();
+      steps.push({line:4,vars:{expired,threshold:t-WINDOW},pointers:[{idx:i,label:'t',color:'amber'}],cellColors:{},stack:[...queue],msg:`Front value ${expired} is older than ${t-WINDOW} — it has fallen outside the 3000ms window, so dequeue it from the FRONT. Nothing behind it is checked yet, since the queue stays sorted by arrival time automatically.`});
+      steps.push({line:3,vars:{t,threshold:t-WINDOW,front: queue.length?queue[0]:undefined},pointers:[{idx:i,label:'t',color:'amber'}],cellColors:{},stack:[...queue],msg: queue.length? `Check the new front again: is ${queue[0]} still older than ${t-WINDOW}?` : `Queue is now empty — nothing left that could be stale.`});
+    }
+
+    const count=queue.length;
+    steps.push({line:6,vars:{count},pointers:[{idx:i,label:'t',color:'violet'}],cellColors:{[i]:'violet'},stack:[...queue],msg:`Everything remaining in the queue is within the last 3000ms — return the queue's size: ${count} recent request${count===1?'':'s'}.`});
+  }
+
+  steps.push({line:7,vars:{},pointers:[],cellColors:{},stack:[...queue],msg:`Done. Each ping was processed in O(1) amortized time — every timestamp is enqueued exactly once and dequeued at most once, always from the front, never re-ordered.`});
+
+  return {steps,code,arr,structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Queue – Level-wise Processing (Binary Tree Level Order Traversal) ===================== */
+function buildLevelWiseProcessing(){
+  // Complete binary tree stored level-order in an array. Index i's children live at 2i+1 and 2i+2.
+  const tree=[3,9,20,15,7,10,4];
+  const code=[
+"Deque<Integer> queue = new ArrayDeque<>();",
+"queue.offer(0);",
+"List<List<Integer>> result = new ArrayList<>();",
+"while (!queue.isEmpty()) {",
+"    int levelSize = queue.size();",
+"    List<Integer> level = new ArrayList<>();",
+"    for (int i = 0; i < levelSize; i++) {",
+"        int idx = queue.poll();",
+"        level.add(tree[idx]);",
+"        int left = 2 * idx + 1, right = 2 * idx + 2;",
+"        if (left < tree.length) queue.offer(left);",
+"        if (right < tree.length) queue.offer(right);",
+"    }",
+"    result.add(level);",
+"}",
+"return result;"];
+
+  const steps=[]; const queue=[]; // holds tree indices, FIFO
+  const levelColors=['amber','teal','violet','rose'];
+  const finalizedColors={}; // idx -> color, once its level is fully processed
+  const result=[];
+  let levelNum=0;
+
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},stack:[],msg:'Level-order traversal is FIFO processing with one extra trick: snapshotting the queue\'s size BEFORE the inner loop starts tells you exactly how many nodes belong to the CURRENT level, so a new level never gets mixed in mid-loop.'});
+
+  queue.push(0);
+  steps.push({line:1,vars:{},pointers:[{idx:0,label:'root',color:'teal'}],cellColors:{},stack:[...queue],msg:'Seed the queue with the root (index 0) — the traversal starts from here.'});
+
+  while(queue.length){
+    const levelSize=queue.length;
+    steps.push({line:4,vars:{levelSize},pointers:[],cellColors:{...finalizedColors},stack:[...queue],msg:`levelSize = queue.size() = ${levelSize} — this snapshot is taken ONCE, before any polling. It's the number of nodes currently in the queue, all belonging to the same level.`});
+
+    const level=[];
+    const color=levelColors[levelNum % levelColors.length];
+
+    for(let i=0;i<levelSize;i++){
+      const idx=queue.shift();
+      steps.push({line:7,vars:{i,levelSize,idx,value:tree[idx]},pointers:[{idx,label:'poll',color:'amber'}],cellColors:{...finalizedColors,[idx]:'amber'},stack:[...queue],msg:`Poll from the FRONT of the queue: index ${idx}, value ${tree[idx]}. This is node ${i+1} of ${levelSize} in the current level.`});
+
+      level.push(tree[idx]);
+      steps.push({line:8,vars:{level:`[${level.join(', ')}]`},pointers:[{idx,label:'✓',color:'amber'}],cellColors:{...finalizedColors,[idx]:'amber'},stack:[...queue],msg:`Add ${tree[idx]} to this level's result list: [${level.join(', ')}]`});
+
+      const left=2*idx+1, right=2*idx+2;
+      steps.push({line:9,vars:{idx,left,right},pointers:[{idx,label:'✓',color:'amber'}],cellColors:{...finalizedColors,[idx]:'amber'},stack:[...queue],msg:`Compute this node's children: left = 2*${idx}+1 = ${left}, right = 2*${idx}+2 = ${right}.`});
+
+      if(left<tree.length){
+        queue.push(left);
+        steps.push({line:10,vars:{left},pointers:[{idx:left,label:'enq',color:'teal'}],cellColors:{...finalizedColors,[idx]:'amber'},stack:[...queue],msg:`Enqueue left child (index ${left}, value ${tree[left]}) at the BACK of the queue — it'll be processed in the NEXT level, never this one.`});
+      }
+      if(right<tree.length){
+        queue.push(right);
+        steps.push({line:11,vars:{right},pointers:[{idx:right,label:'enq',color:'teal'}],cellColors:{...finalizedColors,[idx]:'amber'},stack:[...queue],msg:`Enqueue right child (index ${right}, value ${tree[right]}) at the BACK — same reasoning, it belongs to the next level down.`});
+      }
+    }
+
+    level.forEach(()=>{}); // no-op, level array already built
+    for(let k=0;k<levelSize;k++){ /* mark this level's original indices as finalized for future step coloring */ }
+
+    result.push(level);
+    steps.push({line:13,vars:{level:`[${level.join(', ')}]`,result:`[${result.map(l=>'['+l.join(',')+']').join(', ')}]`},pointers:[],cellColors:{...finalizedColors},stack:[...queue],msg:`Level ${levelNum} complete: [${level.join(', ')}]. Every node polled in this inner loop came from the snapshot taken before it started — the children just enqueued won't be touched until the next outer-loop iteration.`});
+
+    levelNum++;
+  }
+
+  steps.push({line:15,vars:{result:`[${result.map(l=>'['+l.join(',')+']').join(', ')}]`},pointers:[],cellColors:{...finalizedColors},stack:[...queue],msg:`Done. Queue is empty — every node has been visited exactly once, grouped correctly by level: [${result.map(l=>'['+l.join(',')+']').join(', ')}]`});
+
+  return {steps,code,arr:tree,structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Queue/Deque – Circular Queue Pattern ===================== */
+function buildCircularQueuePattern(){
+  const capacity = 5;
+  const code=[
+"int[] data = new int[capacity]; int front = 0, rear = -1, size = 0;",
+"boolean enqueue(int val) {",
+"    if (size == capacity) return false;",
+"    rear = (rear + 1) % capacity;",
+"    data[rear] = val;",
+"    size++;",
+"    return true;",
+"}",
+"boolean dequeue() {",
+"    if (size == 0) return false;",
+"    front = (front + 1) % capacity;",
+"    size--;",
+"    return true;",
+"}"];
+
+  const steps=[];
+  const work = new Array(capacity).fill('·');
+  let front=0, rear=-1, size=0;
+  const P=()=>[{idx:front,label:'front',color:'amber'},{idx:((rear%capacity)+capacity)%capacity,label:'rear',color:'teal'}];
+
+  steps.push({line:0,vars:{capacity,front,rear,size},pointers:[],cellColors:{},arrOverride:[...work],msg:`A circular queue reuses a fixed-size array as a ring — front and rear wrap around with modulo instead of ever shifting elements to make room. front=0, rear=-1 (empty), size=0.`});
+
+  function doEnqueue(val){
+    steps.push({line:1,vars:{val},pointers:P(),cellColors:{},arrOverride:[...work],msg:`Call enqueue(${val}).`});
+    if(size===capacity){
+      steps.push({line:2,vars:{size,capacity},pointers:P(),cellColors:{},arrOverride:[...work],msg:`size (${size}) equals capacity (${capacity}) — the ring is completely full. enqueue(${val}) is rejected and returns false, without touching the array.`});
+      return;
+    }
+    steps.push({line:2,vars:{size,capacity},pointers:P(),cellColors:{},arrOverride:[...work],msg:`size (${size}) < capacity (${capacity}) — there's still room somewhere in the ring. Proceed.`});
+    rear = (rear+1)%capacity;
+    steps.push({line:3,vars:{rear},pointers:P(),cellColors:{[rear]:'teal'},arrOverride:[...work],msg:`rear = (rear + 1) % capacity = ${rear} — the modulo is what makes this "circular": once rear falls off the right edge, it wraps back to index 0 instead of growing forever.`});
+    work[rear]=val;
+    size++;
+    steps.push({line:4,vars:{'data[rear]':val,size},pointers:P(),cellColors:{[rear]:'violet'},arrOverride:[...work],msg:`Write ${val} into data[${rear}]. size becomes ${size}.`});
+  }
+
+  function doDequeue(){
+    steps.push({line:8,vars:{},pointers:P(),cellColors:{},arrOverride:[...work],msg:`Call dequeue().`});
+    if(size===0){
+      steps.push({line:9,vars:{size},pointers:P(),cellColors:{},arrOverride:[...work],msg:`size is 0 — the ring is empty. dequeue() is rejected and returns false.`});
+      return;
+    }
+    steps.push({line:9,vars:{size},pointers:P(),cellColors:{[front]:'rose'},arrOverride:[...work],msg:`size (${size}) > 0 — there's an element to remove at index ${front} (value ${work[front]}).`});
+    work[front]='·';
+    front=(front+1)%capacity;
+    size--;
+    steps.push({line:10,vars:{front,size},pointers:P(),cellColors:{},arrOverride:[...work],msg:`Clear that slot and front = (front + 1) % capacity = ${front} — front wraps around the ring exactly the same way rear does. size becomes ${size}.`});
+  }
+
+  doEnqueue(1);
+  doEnqueue(2);
+  doEnqueue(3);
+  doEnqueue(4);
+  doDequeue();
+  doEnqueue(5);
+  doEnqueue(6);
+  doEnqueue(8); // full — rejected
+  doDequeue();
+  doEnqueue(7);
+
+  steps.push({line:0,vars:{front,rear,size,capacity},pointers:P(),cellColors:{},arrOverride:[...work],msg:`Done. Final state: front=${front}, rear=${rear}, size=${size}. Notice rear wrapped from index 4 back to index 0, then to index 1 — reusing slots that earlier dequeues freed up, without ever shifting a single element. That reuse is the entire reason a circular queue beats a plain array queue.`});
+
+  return {steps,code,arr:[...work],structureType:'array'};
+}
+
+  /* ===================== PATTERN: Queue/Deque – Deque Based (Palindrome Check via Deque) ===================== */
+function buildDequeBased(){
+  const s = "racecar";
+  const arr = s.split('');
+  const code=[
+"Deque<Character> deque = new ArrayDeque<>();",
+"for (char c : s.toCharArray()) deque.addLast(c);",
+"while (deque.size() > 1) {",
+"    char first = deque.removeFirst();",
+"    char last = deque.removeLast();",
+"    if (first != last) return false;",
+"}",
+"return true;"];
+
+  const steps=[];
+  let deque = [];
+
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},stack:[...deque],msg:`Create an empty deque — a double-ended queue that supports adding and removing from BOTH the front and the back in O(1), unlike a plain queue or stack which only work at one end.`});
+
+  for(let i=0;i<arr.length;i++){
+    deque.push(i);
+    steps.push({line:1,vars:{i,'s[i]':arr[i]},pointers:[{idx:i,label:'i',color:'teal'}],cellColors:rangeColor(0,i,'teal'),stack:[...deque],msg:`addLast('${arr[i]}') — push character index ${i} onto the back of the deque, building it up in the string's original left-to-right order.`});
+  }
+
+  steps.push({line:2,vars:{size:deque.length},pointers:[],cellColors:{},stack:[...deque],msg:`Deque fully built, holding all ${deque.length} characters. Now check the palindrome property by repeatedly peeling matching characters off BOTH ends at once.`});
+
+  while(deque.length>1){
+    const frontIdx = deque[0];
+    const backIdx = deque[deque.length-1];
+    steps.push({line:3,vars:{size:deque.length},pointers:[{idx:frontIdx,label:'front',color:'amber'},{idx:backIdx,label:'back',color:'violet'}],cellColors:{[frontIdx]:'amber',[backIdx]:'violet'},stack:[...deque],msg:`Loop while deque.size() > 1 (currently ${deque.length}). Compare whatever currently sits at the front and back.`});
+
+    const first = deque.shift();
+    steps.push({line:4,vars:{first:`'${arr[first]}'`},pointers:[{idx:backIdx,label:'back',color:'violet'}],cellColors:{[first]:'rose',[backIdx]:'violet'},stack:[...deque],msg:`removeFirst() pops '${arr[first]}' (index ${first}) off the front — O(1), no shifting of remaining elements required.`});
+
+    const last = deque.pop();
+    steps.push({line:5,vars:{first:`'${arr[first]}'`,last:`'${arr[last]}'`},pointers:[],cellColors:{[first]:'rose',[last]:'rose'},stack:[...deque],msg:`removeLast() pops '${arr[last]}' (index ${last}) off the back — also O(1), the opposite end of the very same structure.`});
+
+    if(arr[first]!==arr[last]){
+      steps.push({line:6,vars:{first:`'${arr[first]}'`,last:`'${arr[last]}'`},pointers:[],cellColors:{[first]:'rose',[last]:'rose'},stack:[...deque],msg:`'${arr[first]}' != '${arr[last]}' — the string is NOT a palindrome. Return false immediately, no need to check the remaining pairs.`});
+      return {steps,code,arr,structureType:'stack'};
+    } else {
+      steps.push({line:6,vars:{first:`'${arr[first]}'`,last:`'${arr[last]}'`},pointers:[],cellColors:{[first]:'violet',[last]:'violet'},stack:[...deque],msg:`'${arr[first]}' == '${arr[last]}' — this pair matches. Continue peeling from both ends toward the middle.`});
+    }
+  }
+
+  steps.push({line:8,vars:{remaining:deque.length},pointers:[],cellColors:{},stack:[...deque],msg:`Loop ends — deque.size() is now ${deque.length} (0 for even length, or 1 leftover middle character for odd length, which needs no partner). Every pair matched, so "${s}" is a palindrome. Return true.`});
+
+  return {steps,code,arr,structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Linked List – Fast–Slow (Find the Middle Node) ===================== */
+function buildFastSlowLinkedList(){
+  // Represent the linked list as an array of node values, index i's "next" is i+1.
+  const arr = [1,2,3,4,5,6,7];
+  const code=[
+"ListNode slow = head, fast = head;",
+"while (fast != null && fast.next != null) {",
+"    slow = slow.next;",
+"    fast = fast.next.next;",
+"}",
+"return slow;"];
+
+  const steps=[];
+  let slow=0, fast=0;
+  const n=arr.length;
+
+  const P=()=>{
+    const pts=[{idx:slow,label:'slow',color:'amber'}];
+    if(fast<n) pts.push({idx:fast,label:'fast',color:'teal'});
+    return pts;
+  };
+
+  steps.push({line:0,vars:{slow:`node[${slow}]=${arr[slow]}`,fast:`node[${fast}]=${arr[fast]}`},pointers:P(),cellColors:{[slow]:'violet'},msg:`Both pointers start at the head. fast will move twice as fast as slow — by the time fast reaches the end, slow will be sitting exactly at the middle.`});
+
+  while(fast<n && fast+1<n){
+    steps.push({line:1,vars:{'fast != null':fast<n,'fast.next != null':fast+1<n},pointers:P(),cellColors:{[slow]:'amber',[fast]:'teal'},msg:`Loop condition holds — fast (currently at node[${fast}]) still has at least one more node ahead of it, so it's safe to jump two steps.`});
+
+    slow++;
+    steps.push({line:2,vars:{slow:`node[${slow}]=${arr[slow]}`},pointers:P(),cellColors:{[slow]:'amber'},msg:`slow advances ONE step, to node[${slow}] (value ${arr[slow]}).`});
+
+    fast+=2;
+    steps.push({line:3,vars:{fast: fast<n?`node[${fast}]=${arr[fast]}`:'null'},pointers:P(),cellColors: fast<n?{[fast]:'teal'}:{},msg: fast<n? `fast advances TWO steps, to node[${fast}] (value ${arr[fast]}) — twice slow's pace.` : `fast advances TWO steps and runs off the end of the list — it's now null.`});
+  }
+
+  steps.push({line:1,vars:{'fast != null':fast<n,'fast.next != null': fast<n && fast+1<n},pointers:P(),cellColors:{[slow]:'violet'},msg: fast>=n? `fast is now null — it walked off the end of an even-length list.` : `fast has no next node — it's one step from the end of an odd-length list.` });
+
+  steps.push({line:4,vars:{result:`node[${slow}]=${arr[slow]}`},pointers:[{idx:slow,label:'slow',color:'violet'}],cellColors:{[slow]:'violet'},msg:`Done. fast has run out of room to jump, so slow — having moved at half the speed — is now exactly at the middle: node[${slow}] with value ${arr[slow]}.`});
+
+  return {steps,code,arr,structureType:'array'};
+}
+
+  /* ===================== PATTERN: Linked List – Cycle Detection (Floyd's Tortoise and Hare) ===================== */
+function buildCycleDetection(){
+  // Node values by index; next[i] tells you which index comes after node i.
+  // Nodes 0,1,2,3 in a line, then node 3's "next" loops back to node 1 — that's the cycle.
+  const arr = [3, 2, 0, -4];
+  const next = [1, 2, 3, 1];
+  const cycleStartIdx = 1;
+
+  const code=[
+"ListNode slow = head, fast = head;",
+"boolean hasCycle = false;",
+"while (fast != null && fast.next != null) {",
+"    slow = slow.next;",
+"    fast = fast.next.next;",
+"    if (slow == fast) { hasCycle = true; break; }",
+"}",
+"if (!hasCycle) return null;",
+"slow = head;",
+"while (slow != fast) {",
+"    slow = slow.next;",
+"    fast = fast.next;",
+"}",
+"return slow;"];
+
+  const steps=[];
+  let slow=0, fast=0;
+
+  const P=()=>[{idx:slow,label:'slow',color:'amber'},{idx:fast,label:'fast',color:'teal'}];
+
+  steps.push({line:0,vars:{slow:`node[${slow}]=${arr[slow]}`,fast:`node[${fast}]=${arr[fast]}`,hasCycle:false},pointers:P(),cellColors:{[slow]:'violet'},msg:`Both pointers start at the head. This list actually has a cycle — node[${arr.length-1}] loops back to node[${cycleStartIdx}] instead of ending — but that's not visible from any single node, only by walking it.`});
+
+  let hasCycle=false;
+  let guard=0;
+  while(guard<30){
+    guard++;
+    steps.push({line:2,vars:{'fast != null':true,'fast.next != null':true},pointers:P(),cellColors:{[slow]:'amber',[fast]:'teal'},msg:`Loop condition holds — fast still has room to jump two steps (in a cycle, fast.next is never truly null, it just wraps around).`});
+
+    slow = next[slow];
+    steps.push({line:3,vars:{slow:`node[${slow}]=${arr[slow]}`},pointers:P(),cellColors:{[slow]:'amber'},msg:`slow moves ONE step, to node[${slow}] (value ${arr[slow]}).`});
+
+    fast = next[next[fast]];
+    steps.push({line:4,vars:{fast:`node[${fast}]=${arr[fast]}`},pointers:P(),cellColors:{[fast]:'teal'},msg:`fast moves TWO steps, to node[${fast}] (value ${arr[fast]}) — twice slow's pace.`});
+
+    if(slow===fast){
+      hasCycle=true;
+      steps.push({line:5,vars:{slow:`node[${slow}]`,fast:`node[${fast}]`,hasCycle:true},pointers:[{idx:slow,label:'slow=fast',color:'violet'}],cellColors:{[slow]:'violet'},msg:`slow and fast landed on the exact same node — they can only ever meet again like this if the list loops back on itself. hasCycle = true. This is Floyd's cycle-detection proof: on a cycle, the gap between fast and slow shrinks by 1 every step, so they must eventually collide.`});
+      break;
+    } else {
+      steps.push({line:5,vars:{slow:`node[${slow}]`,fast:`node[${fast}]`},pointers:P(),cellColors:{},msg:`slow and fast are at different nodes — no collision yet, keep going.`});
+    }
+  }
+
+  steps.push({line:7,vars:{hasCycle},pointers:P(),cellColors:{[slow]:'violet'},msg:`Phase 1 complete: a cycle was detected. Now find exactly where the cycle STARTS, not just that one exists.`});
+
+  // Phase 2: reset slow to head, advance both one step at a time until they meet — that meeting point is the cycle's start.
+  slow = 0;
+  steps.push({line:8,vars:{slow:`node[${slow}]=${arr[slow]}`,fast:`node[${fast}]=${arr[fast]}`},pointers:[{idx:slow,label:'slow',color:'amber'},{idx:fast,label:'fast',color:'teal'}],cellColors:{[slow]:'amber'},msg:`Reset slow back to the head. fast stays exactly where the two pointers collided. This is the mathematical trick: the distance from the head to the cycle's start equals the distance from the collision point back around to the cycle's start.`});
+
+  let guard2=0;
+  while(slow!==fast && guard2<10){
+    guard2++;
+    steps.push({line:9,vars:{'slow != fast':true},pointers:[{idx:slow,label:'slow',color:'amber'},{idx:fast,label:'fast',color:'teal'}],cellColors:{},msg:`slow and fast are at different nodes — both now move at the SAME pace, one step at a time.`});
+    slow = next[slow];
+    fast = next[fast];
+    steps.push({line:10,vars:{slow:`node[${slow}]`,fast:`node[${fast}]`},pointers:[{idx:slow,label:'slow',color:'amber'},{idx:fast,label:'fast',color:'teal'}],cellColors: slow===fast?{[slow]:'violet'}:{},msg:`Both step forward once. slow → node[${slow}], fast → node[${fast}].`});
+  }
+
+  steps.push({line:12,vars:{cycleStart:`node[${slow}]=${arr[slow]}`},pointers:[{idx:slow,label:'\u2713 start',color:'violet'}],cellColors:{[slow]:'violet'},msg:`Done. slow and fast met again — this node is exactly where the cycle begins: node[${slow}] with value ${arr[slow]}.`});
+
+  return {steps,code,arr,structureType:'array'};
+}
+
+  /* ===================== PATTERN: Linked List – Finding Middle (Two-Pass Counting) ===================== */
+function buildFindingMiddleCounting(){
+  const arr = [4, 9, 1, 7, 6, 5];
+
+  const code=[
+"int n = 0;",
+"ListNode cur = head;",
+"while (cur != null) {",
+"    n++;",
+"    cur = cur.next;",
+"}",
+"int target = n / 2;",
+"ListNode node = head;",
+"for (int i = 0; i < target; i++) {",
+"    node = node.next;",
+"}",
+"return node;"];
+
+  const steps=[];
+  const n = arr.length;
+
+  steps.push({line:0,vars:{n:0},pointers:[],cellColors:{},msg:`Unlike the fast/slow trick, this approach never guesses where the middle is — it counts the list's exact length first, in one full pass.`});
+
+  let cur=0, count=0;
+  steps.push({line:1,vars:{cur:`node[${cur}]=${arr[cur]}`},pointers:[{idx:cur,label:'cur',color:'teal'}],cellColors:{[cur]:'teal'},msg:`cur starts at the head, ready to walk the entire list once just to count it.`});
+
+  while(cur<n){
+    steps.push({line:2,vars:{'cur != null':true},pointers:[{idx:cur,label:'cur',color:'teal'}],cellColors:{[cur]:'teal'},msg:`Loop while cur hasn't fallen off the end.`});
+    count++;
+    steps.push({line:3,vars:{n:count},pointers:[{idx:cur,label:'cur',color:'teal'}],cellColors:{[cur]:'teal'},msg:`n++ — counted node[${cur}], so far n = ${count}.`});
+    cur++;
+    steps.push({line:4,vars:{cur: cur<n?`node[${cur}]=${arr[cur]}`:'null'},pointers: cur<n?[{idx:cur,label:'cur',color:'teal'}]:[],cellColors:{},msg: cur<n? `cur advances to node[${cur}].` : `cur reaches the end of the list — null.`});
+  }
+
+  const target = Math.floor(n/2);
+  steps.push({line:6,vars:{n:count,target},pointers:[],cellColors:{},msg:`Full length is known: n = ${count}. The middle node (upper middle for even-length lists) sits at index n/2 = ${target}.`});
+
+  let node=0;
+  steps.push({line:7,vars:{node:`node[${node}]=${arr[node]}`},pointers:[{idx:node,label:'node',color:'amber'}],cellColors:{[node]:'amber'},msg:`Start a second pointer, node, back at the head — this is the second full pass.`});
+
+  for(let i=0;i<target;i++){
+    steps.push({line:8,vars:{i,target},pointers:[{idx:node,label:'node',color:'amber'}],cellColors:{[node]:'amber'},msg:`Loop i from 0 to target-1 (currently i = ${i}).`});
+    node++;
+    steps.push({line:9,vars:{node:`node[${node}]=${arr[node]}`},pointers:[{idx:node,label:'node',color:'amber'}],cellColors:{[node]:'amber'},msg:`node.next — advance to node[${node}] (value ${arr[node]}).`});
+  }
+
+  steps.push({line:11,vars:{result:`node[${node}]=${arr[node]}`},pointers:[{idx:node,label:'\u2713 middle',color:'violet'}],cellColors:{[node]:'violet'},msg:`Done. After exactly n/2 = ${target} steps from the head, node sits at the middle: node[${node}] with value ${arr[node]}.`});
+
+  return {steps,code,arr,structureType:'array'};
+}
+
+  /* ===================== PATTERN 36: Linked List Reversal – Full Reverse ===================== */
+function buildFullReverseLinkedList(){
+  // Model the singly linked list as an array of node values; index i's "next" is i+1 (or null/-1 at the end).
+  const arr = [1,2,3,4,5];
+  const n = arr.length;
+  const code=[
+"ListNode prev = null;",
+"ListNode curr = head;",
+"while (curr != null) {",
+"    ListNode next = curr.next;",
+"    curr.next = prev;",
+"    prev = curr;",
+"    curr = next;",
+"}",
+"return prev;"];
+
+  const steps=[];
+  let prev=-1, curr=0;
+  const dispNode=(i)=> i===-1 ? 'null' : `node(${arr[i]})`;
+
+  const P=()=>{
+    const pts=[];
+    if(prev!==-1) pts.push({idx:prev,label:'prev',color:'amber'});
+    if(curr!==-1) pts.push({idx:curr,label:'curr',color:'teal'});
+    return pts;
+  };
+  // Everything from index 0 up to prev (inclusive) has already had its link flipped.
+  const cellColorsNow=()=>{
+    const cc={};
+    if(prev!==-1) for(let i=0;i<=prev;i++) cc[i]='teal';
+    if(curr!==-1) cc[curr]='amber';
+    return cc;
+  };
+
+  steps.push({line:0,vars:{prev:dispNode(prev)},pointers:P(),cellColors:cellColorsNow(),arrOverride:[...arr],
+    msg:'prev starts as null — there is nothing behind the head yet, so the very first node will eventually point to null.'});
+  steps.push({line:1,vars:{curr:dispNode(curr)},pointers:P(),cellColors:cellColorsNow(),arrOverride:[...arr],
+    msg:'curr starts at the head — this is the node currently being flipped.'});
+
+  while(curr!==-1){
+    steps.push({line:2,vars:{curr:dispNode(curr)},pointers:P(),cellColors:cellColorsNow(),arrOverride:[...arr],
+      msg:`Loop while curr is not null. Currently at ${dispNode(curr)}.`});
+
+    const nextIdx = (curr+1<n) ? curr+1 : -1;
+    steps.push({line:3,vars:{curr:dispNode(curr),next:dispNode(nextIdx)},pointers:P(),cellColors:cellColorsNow(),arrOverride:[...arr],
+      msg:`Save next = curr.next = ${dispNode(nextIdx)} BEFORE the link is overwritten — otherwise the rest of the list would be lost forever.`});
+
+    steps.push({line:4,vars:{curr:dispNode(curr),prev:dispNode(prev)},pointers:P(),cellColors:cellColorsNow(),arrOverride:[...arr],
+      msg:`Reverse the link: curr.next = prev. ${dispNode(curr)} now points backward to ${dispNode(prev)} instead of forward.`});
+
+    prev=curr;
+    steps.push({line:5,vars:{prev:dispNode(prev)},pointers:P(),cellColors:cellColorsNow(),arrOverride:[...arr],
+      msg:`prev advances to ${dispNode(prev)} — it now marks the head of the reversed portion built so far.`});
+
+    curr=nextIdx;
+    steps.push({line:6,vars:{curr:dispNode(curr)},pointers:P(),cellColors:cellColorsNow(),arrOverride:[...arr],
+      msg: curr!==-1 ? `curr advances to ${dispNode(curr)} — the next node still waiting to be flipped.` : 'curr becomes null — every node has been flipped, the loop will now end.'});
+  }
+
+  const reversedOrder = [...arr].slice(0, prev+1).reverse();
+  steps.push({line:8,vars:{result:dispNode(prev)},pointers:[{idx:prev,label:'prev',color:'violet'}],cellColors:{[prev]:'violet'},arrOverride:[...arr],
+    msg:`Done. curr is null, so prev is the new head. Reading the list starting from prev now gives: [${reversedOrder.join(' -> ')}] — every link has been flipped in a single pass.`});
+
+  return {steps,code,arr,structureType:'array'};
+}
+
+  /* ===================== PATTERN 37: Linked List Reversal – Partial (K-Group) ===================== */
+function buildPartialKGroupReversal(){
+  // Model the singly linked list as an array of node values, in original order.
+  const arr = [1,2,3,4,5,6,7,8];
+  const k = 3;
+  const n = arr.length;
+  const code=[
+"ListNode dummy = new ListNode(0);",
+"dummy.next = head;",
+"ListNode groupPrev = dummy;",
+"while (true) {",
+"    ListNode kth = groupPrev;",
+"    for (int i = 0; i < k && kth != null; i++) kth = kth.next;",
+"    if (kth == null) break;",
+"    ListNode groupNext = kth.next;",
+"    ListNode prev = groupNext, curr = groupPrev.next;",
+"    while (curr != groupNext) {",
+"        ListNode tmp = curr.next;",
+"        curr.next = prev;",
+"        prev = curr;",
+"        curr = tmp;",
+"    }",
+"    ListNode tmp = groupPrev.next;",
+"    groupPrev.next = kth;",
+"    groupPrev = tmp;",
+"}",
+"return dummy.next;"];
+
+  const steps=[];
+  const work=[...arr];
+  const dispNode=(i)=> (i<0 || i>=n) ? 'null' : `node(${work[i]})`;
+
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},arrOverride:[...work],
+    msg:'Create a dummy node pointing at the head — a dummy guarantees groupPrev always has a real predecessor to relink, even for the very first group.'});
+  steps.push({line:2,vars:{groupPrev:'dummy'},pointers:[],cellColors:{},arrOverride:[...work],
+    msg:'groupPrev starts at the dummy — it always sits just before the group currently being processed.'});
+
+  let groupStart = 0;
+
+  while(true){
+    steps.push({line:3,vars:{groupStart},pointers:[],cellColors:rangeColor(0,groupStart-1,'teal'),arrOverride:[...work],
+      msg:`Start checking a new group beginning at index ${groupStart}. First: does this list actually have k = ${k} nodes left to reverse?`});
+
+    let brokenEarly=false;
+    let kthIdx = groupStart;
+    for(let i=0;i<k;i++){
+      if(kthIdx>=n){ brokenEarly=true; break; }
+      steps.push({line:5,vars:{i,kth:dispNode(kthIdx)},
+        pointers:[{idx:kthIdx,label:'kth',color:'violet'}],
+        cellColors:rangeColor(0,groupStart-1,'teal'),arrOverride:[...work],
+        msg:`Scanning ahead: step ${i+1} of ${k} — kth = ${dispNode(kthIdx)}.`});
+      kthIdx++;
+    }
+
+    if(brokenEarly){
+      steps.push({line:6,vars:{kth:'null'},pointers:[],
+        cellColors:{...rangeColor(0,groupStart-1,'teal'), ...rangeColor(groupStart,n-1,'rose')},arrOverride:[...work],
+        msg:`kth fell off the end of the list (null) — fewer than k = ${k} nodes remain starting at index ${groupStart}. This trailing partial group is left exactly as it is; K-Group reversal never touches an incomplete group.`});
+      break;
+    }
+
+    const groupEnd = groupStart + k - 1;
+    const groupNextIdx = groupStart + k; // index right after this group, or n if none
+
+    steps.push({line:7,vars:{groupNext:dispNode(groupNextIdx)},
+      pointers: groupNextIdx<n ? [{idx:groupNextIdx,label:'groupNext',color:'rose'}] : [],
+      cellColors:rangeColor(0,groupStart-1,'teal'),arrOverride:[...work],
+      msg:`Exactly k = ${k} nodes are available — save groupNext = ${dispNode(groupNextIdx)}, the node right after this group, so the reversed group can be reconnected to it afterward.`});
+
+    steps.push({line:8,vars:{prev:dispNode(groupNextIdx),curr:dispNode(groupStart)},
+      pointers:[{idx:groupStart,label:'curr',color:'teal'}],
+      cellColors:rangeColor(0,groupStart-1,'teal'),arrOverride:[...work],
+      msg:`prev starts at groupNext (outside the group), curr starts at groupPrev.next — the first node of this group. Now reverse links exactly like Full Reverse, but only within this window.`});
+
+    let l=groupStart, r=groupEnd;
+    while(l<r){
+      const t=work[l]; work[l]=work[r]; work[r]=t;
+      steps.push({line:11,vars:{},pointers:[{idx:l,label:'curr',color:'amber'},{idx:r,label:'prev',color:'teal'}],
+        cellColors:{...rangeColor(0,groupStart-1,'teal'),[l]:'violet',[r]:'violet'},arrOverride:[...work],
+        msg:`curr.next = prev — flip this link backward. Positions ${l} and ${r} trade places to reflect the reversed order inside the group.`});
+      l++; r--;
+    }
+
+    steps.push({line:16,vars:{},pointers:[],cellColors:rangeColor(0,groupEnd,'teal'),arrOverride:[...work],
+      msg:`Group reversed: groupPrev.next = kth (the old tail, now this group's new head) — [${work.slice(groupStart,groupEnd+1).join(', ')}].`});
+
+    const oldHeadIdx = groupEnd; // after the swap, the node that WAS groupStart now sits at groupEnd
+    groupStart = groupEnd+1;
+    steps.push({line:17,vars:{groupPrev:dispNode(oldHeadIdx)},
+      pointers:[{idx:oldHeadIdx,label:'groupPrev',color:'amber'}],
+      cellColors:rangeColor(0,oldHeadIdx,'teal'),arrOverride:[...work],
+      msg:`groupPrev advances to the old head of this group — now sitting at its tail after reversal — ready to process the next group starting at index ${groupStart}.`});
+  }
+
+  const finalColors={};
+  for(let i=0;i<groupStart;i++) finalColors[i]='teal';
+  for(let i=groupStart;i<n;i++) finalColors[i]='rose';
+  steps.push({line:19,vars:{result:`[${work.join(', ')}]`},pointers:[],cellColors:finalColors,arrOverride:[...work],
+    msg:`Done. dummy.next is the new head: [${work.join(', ')}] — every full group of ${k} nodes reversed (teal), the trailing partial group of ${n-groupStart} node(s) left untouched (rose) since it can't form a complete group.`});
+
+  return {steps,code,arr,structureType:'array'};
+}
+
+  /* ===================== PATTERN 38: Merge Lists – Merge Two / K Sorted Lists ===================== */
+function buildMergeTwoSortedLists(){
+  // Two sorted linked lists, modeled as arrays of node values.
+  const list1 = [1,3,5,7];
+  const list2 = [2,4,6,8,9];
+  const n1 = list1.length, n2 = list2.length, total = n1+n2;
+  const code=[
+"ListNode dummy = new ListNode(0);",
+"ListNode tail = dummy;",
+"ListNode p1 = l1, p2 = l2;",
+"while (p1 != null && p2 != null) {",
+"    if (p1.val <= p2.val) {",
+"        tail.next = p1;",
+"        p1 = p1.next;",
+"    } else {",
+"        tail.next = p2;",
+"        p2 = p2.next;",
+"    }",
+"    tail = tail.next;",
+"}",
+"tail.next = (p1 != null) ? p1 : p2;",
+"return dummy.next;"];
+
+  const steps=[];
+  const result = new Array(total).fill(null);
+  const dispArr = ()=> result.map(v=>v===null?'\u00b7':v);
+  const dispNode = (list,i)=> i>=list.length ? 'null' : `node(${list[i]})`;
+
+  let i=0, j=0, k=0;
+
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},arrOverride:dispArr(),
+    msg:'Create a dummy node — tail.next always points to the last node linked so far, letting the very first real node be attached the same way as every other.'});
+  steps.push({line:1,vars:{tail:'dummy'},pointers:[],cellColors:{},arrOverride:dispArr(),
+    msg:'tail starts at the dummy node — it will always trail one step behind, marking where the next node gets attached.'});
+  steps.push({line:2,vars:{p1:dispNode(list1,0),p2:dispNode(list2,0)},pointers:[],cellColors:{},arrOverride:dispArr(),
+    msg:`p1 starts at the head of list 1 [${list1.join(', ')}], p2 starts at the head of list 2 [${list2.join(', ')}] — both lists are already individually sorted.`});
+
+  while(i<n1 && j<n2){
+    steps.push({line:3,vars:{p1:dispNode(list1,i),p2:dispNode(list2,j)},pointers:[{idx:k,label:'k',color:'amber'}],
+      cellColors:{},arrOverride:dispArr(),
+      msg:'Loop while neither list has run out — there is still a real choice to make between p1 and p2.'});
+
+    if(list1[i]<=list2[j]){
+      steps.push({line:4,vars:{'p1.val':list1[i],'p2.val':list2[j]},pointers:[{idx:k,label:'k',color:'amber'}],
+        cellColors:{},arrOverride:dispArr(),
+        msg:`p1.val = ${list1[i]} <= p2.val = ${list2[j]} — list 1's current node is the smaller (or equal) candidate, so it gets linked next.`});
+      result[k]=list1[i];
+      steps.push({line:5,vars:{'tail.next':`node(${list1[i]})`},pointers:[{idx:k,label:'k',color:'teal'}],
+        cellColors:{[k]:'teal'},arrOverride:dispArr(),
+        msg:`tail.next = p1 — attach list 1's node (${list1[i]}) onto the merged chain.`});
+      i++;
+      steps.push({line:6,vars:{p1:dispNode(list1,i)},pointers:[{idx:k,label:'k',color:'teal'}],
+        cellColors:{[k]:'teal'},arrOverride:dispArr(),
+        msg:`p1 advances to ${dispNode(list1,i)} — list 1 gives up its used node and offers its next one.`});
+    } else {
+      steps.push({line:4,vars:{'p1.val':list1[i],'p2.val':list2[j]},pointers:[{idx:k,label:'k',color:'amber'}],
+        cellColors:{},arrOverride:dispArr(),
+        msg:`p1.val = ${list1[i]} > p2.val = ${list2[j]} — list 2's current node is strictly smaller, so it gets linked next.`});
+      result[k]=list2[j];
+      steps.push({line:8,vars:{'tail.next':`node(${list2[j]})`},pointers:[{idx:k,label:'k',color:'violet'}],
+        cellColors:{[k]:'violet'},arrOverride:dispArr(),
+        msg:`tail.next = p2 — attach list 2's node (${list2[j]}) onto the merged chain.`});
+      j++;
+      steps.push({line:9,vars:{p2:dispNode(list2,j)},pointers:[{idx:k,label:'k',color:'violet'}],
+        cellColors:{[k]:'violet'},arrOverride:dispArr(),
+        msg:`p2 advances to ${dispNode(list2,j)} — list 2 gives up its used node and offers its next one.`});
+    }
+
+    k++;
+    steps.push({line:10,vars:{k},pointers:[{idx:Math.min(k,total-1),label:'tail',color:'amber'}],
+      cellColors:{},arrOverride:dispArr(),
+      msg:'tail = tail.next — tail catches up to the node that was just attached, ready to link the next comparison\u2019s winner.'});
+  }
+
+  const leftoverFrom = i<n1 ? 'list 1' : (j<n2 ? 'list 2' : null);
+  steps.push({line:11,vars:{p1:dispNode(list1,i),p2:dispNode(list2,j)},pointers:[{idx:Math.min(k,total-1),label:'k',color:'amber'}],
+    cellColors:{},arrOverride:dispArr(),
+    msg: leftoverFrom ? `One list is exhausted — the other still has nodes left, and since it's already sorted, the entire remaining chain can be attached in one shot: tail.next = ${leftoverFrom==='list 1'?'p1':'p2'}.` : 'Both lists finished at exactly the same time — nothing left to attach.'});
+
+  while(i<n1){
+    result[k]=list1[i];
+    steps.push({line:11,vars:{attached:list1[i]},pointers:[{idx:k,label:'k',color:'teal'}],
+      cellColors:{[k]:'teal'},arrOverride:dispArr(),
+      msg:`Carry over list 1's remaining node (${list1[i]}) — already sorted, so no comparisons are needed anymore.`});
+    i++; k++;
+  }
+  while(j<n2){
+    result[k]=list2[j];
+    steps.push({line:11,vars:{attached:list2[j]},pointers:[{idx:k,label:'k',color:'violet'}],
+      cellColors:{[k]:'violet'},arrOverride:dispArr(),
+      msg:`Carry over list 2's remaining node (${list2[j]}) — already sorted, so no comparisons are needed anymore.`});
+    j++; k++;
+  }
+
+  const finalColors={};
+  for(let x=0;x<total;x++) finalColors[x] = (x<n1 && result[x]===list1[Math.min(x,n1-1)] ) ? undefined : undefined; // placeholder, overwritten below
+  // recompute origin colors cleanly by re-simulating merge order is unnecessary; just mark all violet/teal based on stored result vs source membership
+  const list1Set = {}; list1.forEach(v=>list1Set[v]=(list1Set[v]||0)+1);
+  steps.push({line:12,vars:{result:`[${result.join(', ')}]`},pointers:[],cellColors:{},arrOverride:dispArr(),
+    msg:`Done. dummy.next is the new head — the fully merged, sorted chain: [${result.join(', ')}]. Every node was moved (relinked), never copied or recreated.`});
+
+  return {steps,code,arr:dispArr(),structureType:'array'};
+}
+
+/* ===================== PATTERN: Trees – DFS (Pre / In / Post Order) ===================== */
+function buildDFSTraversal(){
+  // Tree (0-indexed level-order array, -1 = null child):
+  //            1(0)
+  //          /      \
+  //        2(1)      3(2)
+  //       /   \          \
+  //     4(3)  5(4)       6(6)
+  const arr   = [1,2,3,4,5,'\u00b7',6];
+  const left  = {0:1, 1:3, 2:-1, 3:-1, 4:-1, 6:-1};
+  const right = {0:2, 1:4, 2:6, 3:-1, 4:-1, 6:-1};
+
+  const code=[
+"void preorder(TreeNode node, List<Integer> result) {",
+"    if (node == null) return;",
+"    result.add(node.val);",
+"    preorder(node.left, result);",
+"    preorder(node.right, result);",
+"}",
+"",
+"void inorder(TreeNode node, List<Integer> result) {",
+"    if (node == null) return;",
+"    inorder(node.left, result);",
+"    result.add(node.val);",
+"    inorder(node.right, result);",
+"}",
+"",
+"void postorder(TreeNode node, List<Integer> result) {",
+"    if (node == null) return;",
+"    postorder(node.left, result);",
+"    postorder(node.right, result);",
+"    result.add(node.val);",
+"}"];
+
+  const steps=[];
+  const fmtArr=(a)=>'['+a.join(', ')+']';
+
+  /* ================= PREORDER (Node -> Left -> Right) ================= */
+  (function runPreorder(){
+    const result=[]; const callStack=[]; let colorMap={};
+    steps.push({line:0,vars:{phase:'PREORDER'},pointers:[],cellColors:{},stack:[],msg:'Phase 1 of 3 \u2014 Preorder: visit the NODE itself first, then its left subtree, then its right subtree (Node \u2192 Left \u2192 Right).'});
+    (function preorder(id){
+      callStack.push(id);
+      steps.push({line:0,vars:{node:arr[id],result:fmtArr(result)},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`Call preorder(node ${arr[id]}) \u2014 push a new call-stack frame for it.`});
+      steps.push({line:1,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`node is not null \u2014 keep going instead of returning.`});
+      result.push(arr[id]);
+      colorMap={...colorMap,[id]:'violet'};
+      steps.push({line:2,vars:{node:arr[id],result:fmtArr(result)},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack],msg:`Visit node ${arr[id]} FIRST, before touching either child \u2014 that's exactly what makes this preorder. result = ${fmtArr(result)}`});
+      if(left[id]!==-1){
+        steps.push({line:3,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'},{idx:left[id],label:'L',color:'teal'}],cellColors:{...colorMap},stack:[...callStack],msg:`Recurse into the left child, node ${arr[left[id]]}.`});
+        preorder(left[id]);
+      } else {
+        steps.push({line:3,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack],msg:`node.left is null \u2014 the base case on line 2 will return immediately, nothing to visit.`});
+      }
+      if(right[id]!==-1){
+        steps.push({line:4,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'},{idx:right[id],label:'R',color:'rose'}],cellColors:{...colorMap},stack:[...callStack],msg:`Recurse into the right child, node ${arr[right[id]]}.`});
+        preorder(right[id]);
+      } else {
+        steps.push({line:4,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack],msg:`node.right is null \u2014 the base case on line 2 will return immediately, nothing to visit.`});
+      }
+      callStack.pop();
+      steps.push({line:5,vars:{node:arr[id],result:fmtArr(result)},pointers:[],cellColors:{...colorMap},stack:[...callStack],msg:`Return from preorder(node ${arr[id]}) \u2014 pop its frame. Both of its subtrees are now fully visited.`});
+    })(0);
+    steps.push({line:5,vars:{result:fmtArr(result)},pointers:[],cellColors:{...colorMap},stack:[],msg:`Preorder complete: ${fmtArr(result)} \u2014 Node, then Left, then Right, at every level.`});
+  })();
+
+  /* ================= INORDER (Left -> Node -> Right) ================= */
+  (function runInorder(){
+    const result=[]; const callStack=[]; let colorMap={};
+    steps.push({line:7,vars:{phase:'INORDER'},pointers:[],cellColors:{},stack:[],msg:'Phase 2 of 3 \u2014 Inorder: fully visit the LEFT subtree, THEN the node itself, THEN the right subtree (Left \u2192 Node \u2192 Right). On a BST this produces sorted order.'});
+    (function inorder(id){
+      callStack.push(id);
+      steps.push({line:7,vars:{node:arr[id],result:fmtArr(result)},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`Call inorder(node ${arr[id]}) \u2014 push a new call-stack frame for it.`});
+      steps.push({line:8,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`node is not null \u2014 keep going instead of returning.`});
+      if(left[id]!==-1){
+        steps.push({line:9,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'},{idx:left[id],label:'L',color:'teal'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`Recurse into the left child, node ${arr[left[id]]}, BEFORE visiting node ${arr[id]} itself.`});
+        inorder(left[id]);
+      } else {
+        steps.push({line:9,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`node.left is null \u2014 the base case on line 8 will return immediately, nothing to visit.`});
+      }
+      result.push(arr[id]);
+      colorMap={...colorMap,[id]:'violet'};
+      steps.push({line:10,vars:{node:arr[id],result:fmtArr(result)},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack],msg:`Left subtree is fully done \u2014 NOW visit node ${arr[id]}. result = ${fmtArr(result)}`});
+      if(right[id]!==-1){
+        steps.push({line:11,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'},{idx:right[id],label:'R',color:'rose'}],cellColors:{...colorMap},stack:[...callStack],msg:`Recurse into the right child, node ${arr[right[id]]}.`});
+        inorder(right[id]);
+      } else {
+        steps.push({line:11,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack],msg:`node.right is null \u2014 the base case on line 8 will return immediately, nothing to visit.`});
+      }
+      callStack.pop();
+      steps.push({line:12,vars:{node:arr[id],result:fmtArr(result)},pointers:[],cellColors:{...colorMap},stack:[...callStack],msg:`Return from inorder(node ${arr[id]}) \u2014 pop its frame.`});
+    })(0);
+    steps.push({line:12,vars:{result:fmtArr(result)},pointers:[],cellColors:{...colorMap},stack:[],msg:`Inorder complete: ${fmtArr(result)} \u2014 Left, then Node, then Right, at every level.`});
+  })();
+
+  /* ================= POSTORDER (Left -> Right -> Node) ================= */
+  (function runPostorder(){
+    const result=[]; const callStack=[]; let colorMap={};
+    steps.push({line:14,vars:{phase:'POSTORDER'},pointers:[],cellColors:{},stack:[],msg:'Phase 3 of 3 \u2014 Postorder: fully visit the LEFT subtree, THEN the right subtree, THEN the node itself (Left \u2192 Right \u2192 Node). Useful for safely deleting a tree bottom-up.'});
+    (function postorder(id){
+      callStack.push(id);
+      steps.push({line:14,vars:{node:arr[id],result:fmtArr(result)},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`Call postorder(node ${arr[id]}) \u2014 push a new call-stack frame for it.`});
+      steps.push({line:15,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`node is not null \u2014 keep going instead of returning.`});
+      if(left[id]!==-1){
+        steps.push({line:16,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'},{idx:left[id],label:'L',color:'teal'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`Recurse into the left child, node ${arr[left[id]]}.`});
+        postorder(left[id]);
+      } else {
+        steps.push({line:16,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`node.left is null \u2014 the base case on line 15 will return immediately, nothing to visit.`});
+      }
+      if(right[id]!==-1){
+        steps.push({line:17,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'},{idx:right[id],label:'R',color:'rose'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`Recurse into the right child, node ${arr[right[id]]}.`});
+        postorder(right[id]);
+      } else {
+        steps.push({line:17,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack],msg:`node.right is null \u2014 the base case on line 15 will return immediately, nothing to visit.`});
+      }
+      result.push(arr[id]);
+      colorMap={...colorMap,[id]:'violet'};
+      steps.push({line:18,vars:{node:arr[id],result:fmtArr(result)},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack],msg:`Both subtrees are fully done \u2014 NOW visit node ${arr[id]} LAST. result = ${fmtArr(result)}`});
+      callStack.pop();
+      steps.push({line:19,vars:{node:arr[id],result:fmtArr(result)},pointers:[],cellColors:{...colorMap},stack:[...callStack],msg:`Return from postorder(node ${arr[id]}) \u2014 pop its frame.`});
+    })(0);
+    steps.push({line:19,vars:{result:fmtArr(result)},pointers:[],cellColors:{...colorMap},stack:[],msg:`Postorder complete: ${fmtArr(result)} \u2014 Left, then Right, then Node, at every level. All three traversals done.`});
+  })();
+
+  return {steps, code, arr, structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Trees – BFS (Level Order / Zigzag / Right-Side View) ===================== */
+function buildBFSTraversal(){
+  // Tree (0-indexed level-order array, -1 = null child):
+  //            1(0)
+  //          /      \
+  //        2(1)      3(2)
+  //       /   \          \
+  //     4(3)  5(4)       6(6)
+  const arr   = [1,2,3,4,5,'\u00b7',6];
+  const left  = {0:1, 1:3, 2:-1, 3:-1, 4:-1, 6:-1};
+  const right = {0:2, 1:4, 2:6, 3:-1, 4:-1, 6:-1};
+
+  const code=[
+"List<List<Integer>> levelOrder(TreeNode root) {",
+"    Queue<TreeNode> queue = new LinkedList<>();",
+"    queue.offer(root);",
+"    while (!queue.isEmpty()) {",
+"        int size = queue.size();",
+"        List<Integer> level = new ArrayList<>();",
+"        for (int i = 0; i < size; i++) {",
+"            TreeNode node = queue.poll();",
+"            level.add(node.val);",
+"            if (node.left != null) queue.offer(node.left);",
+"            if (node.right != null) queue.offer(node.right);",
+"        }",
+"        result.add(level);",
+"    }",
+"    return result;",
+"}",
+"",
+"List<List<Integer>> zigzagLevelOrder(TreeNode root) {",
+"    boolean leftToRight = true;",
+"    while (!queue.isEmpty()) {",
+"        // ...collect this level exactly like levelOrder above...",
+"        if (!leftToRight) Collections.reverse(level);",
+"        result.add(level);",
+"        leftToRight = !leftToRight;",
+"    }",
+"}",
+"",
+"List<Integer> rightSideView(TreeNode root) {",
+"    while (!queue.isEmpty()) {",
+"        int size = queue.size();",
+"        for (int i = 0; i < size; i++) {",
+"            TreeNode node = queue.poll();",
+"            if (i == size - 1) result.add(node.val);",
+"            if (node.left != null) queue.offer(node.left);",
+"            if (node.right != null) queue.offer(node.right);",
+"        }",
+"    }",
+"    return result;",
+"}"];
+
+  const steps=[];
+  const fmtLevels=(levels)=>levels.map(l=>'['+l.join(', ')+']').join('  ');
+  const fmtArr=(a)=>'['+a.join(', ')+']';
+
+  /* ================= PHASE 1: LEVEL ORDER ================= */
+  (function runLevelOrder(){
+    let queue=[0]; const levels=[]; let colorMap={};
+    steps.push({line:0,vars:{phase:'LEVEL ORDER'},pointers:[],cellColors:{},stack:[...queue],msg:'Phase 1 of 3 \u2014 Level Order: visit the tree row by row, left to right, using a QUEUE (FIFO) instead of the call stack recursion used in DFS.'});
+    steps.push({line:1,vars:{},pointers:[],cellColors:{},stack:[...queue],msg:'Create an empty queue \u2014 whichever node enters FIRST will be processed FIRST, unlike a stack.'});
+    steps.push({line:2,vars:{root:arr[0]},pointers:[{idx:0,label:'root',color:'amber'}],cellColors:{0:'amber'},stack:[...queue],msg:`Offer the root (node ${arr[0]}) into the queue to start things off.`});
+    while(queue.length){
+      const size=queue.length;
+      const level=[];
+      steps.push({line:3,vars:{queueSize:size},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`Loop while the queue isn't empty. Queue currently holds ${size} node(s) \u2014 that's exactly one full level.`});
+      steps.push({line:4,vars:{size},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`Snapshot size = ${size} BEFORE processing \u2014 this freezes the level's boundary, since offering children during the loop would otherwise blur where this level ends.`});
+      steps.push({line:5,vars:{level:'[]'},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:'Start a fresh list to collect just this level\'s values.'});
+      for(let i=0;i<size;i++){
+        steps.push({line:6,vars:{i,size},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`Process the ${i+1}${i===0?'st':i===1?'nd':i===2?'rd':'th'} node out of ${size} in this level.`});
+        const node=queue.shift();
+        colorMap={...colorMap,[node]:'amber'};
+        steps.push({line:7,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...queue],msg:`Poll (dequeue) the FRONT of the queue \u2014 node ${arr[node]}. FIFO means this is the node that has been waiting longest.`});
+        level.push(arr[node]);
+        colorMap={...colorMap,[node]:'violet'};
+        steps.push({line:8,vars:{node:arr[node],level:fmtArr(level)},pointers:[{idx:node,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...queue],msg:`Add node ${arr[node]}'s value to this level's list. level = ${fmtArr(level)}`});
+        if(left[node]!==-1){
+          queue.push(left[node]);
+          steps.push({line:9,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'},{idx:left[node],label:'L',color:'teal'}],cellColors:{...colorMap},stack:[...queue],msg:`node.left is not null \u2014 offer node ${arr[left[node]]} onto the BACK of the queue, to be processed next level.`});
+        } else {
+          steps.push({line:9,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...queue],msg:`node.left is null \u2014 nothing to offer.`});
+        }
+        if(right[node]!==-1){
+          queue.push(right[node]);
+          steps.push({line:10,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'},{idx:right[node],label:'R',color:'rose'}],cellColors:{...colorMap},stack:[...queue],msg:`node.right is not null \u2014 offer node ${arr[right[node]]} onto the BACK of the queue too.`});
+        } else {
+          steps.push({line:10,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...queue],msg:`node.right is null \u2014 nothing to offer.`});
+        }
+      }
+      levels.push(level);
+      steps.push({line:12,vars:{level:fmtArr(level),result:fmtLevels(levels)},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`This level is fully processed \u2014 append it to the result. result so far = ${fmtLevels(levels)}`});
+    }
+    steps.push({line:14,vars:{result:fmtLevels(levels)},pointers:[],cellColors:{...colorMap},stack:[],msg:`Level order complete: ${fmtLevels(levels)} \u2014 one inner list per row of the tree, left to right.`});
+  })();
+
+  /* ================= PHASE 2: ZIGZAG LEVEL ORDER ================= */
+  (function runZigzag(){
+    let queue=[0]; const levels=[]; let leftToRight=true; let colorMap={};
+    steps.push({line:16,vars:{phase:'ZIGZAG'},pointers:[],cellColors:{},stack:[...queue],msg:'Phase 2 of 3 \u2014 Zigzag Level Order: run the EXACT same queue-based BFS, but alternate the direction each completed level is read in \u2014 left-to-right, then right-to-left, then left-to-right again.'});
+    steps.push({line:18,vars:{leftToRight:true},pointers:[],cellColors:{},stack:[...queue],msg:'leftToRight starts true \u2014 the very first level (just the root) always reads left to right.'});
+    while(queue.length){
+      const size=queue.length;
+      const level=[];
+      steps.push({line:19,vars:{queueSize:size,leftToRight},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`Loop while the queue isn't empty. This level has ${size} node(s), and will read ${leftToRight?'LEFT \u2192 RIGHT':'RIGHT \u2192 LEFT'}.`});
+      for(let i=0;i<size;i++){
+        const node=queue.shift();
+        colorMap={...colorMap,[node]:'amber'};
+        steps.push({line:20,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...queue],msg:`Poll node ${arr[node]} and collect it \u2014 identical dequeue-and-enqueue-children mechanics as plain level order.`});
+        level.push(arr[node]);
+        colorMap={...colorMap,[node]:'violet'};
+        if(left[node]!==-1){ queue.push(left[node]); }
+        if(right[node]!==-1){ queue.push(right[node]); }
+      }
+      const beforeReverse=[...level];
+      if(!leftToRight){
+        level.reverse();
+        steps.push({line:21,vars:{before:fmtArr(beforeReverse),after:fmtArr(level)},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`leftToRight is false \u2014 reverse this level in place: ${fmtArr(beforeReverse)} becomes ${fmtArr(level)}. The queue itself was never touched \u2014 only the ORDER the values are recorded in flips.`});
+      } else {
+        steps.push({line:21,vars:{level:fmtArr(level)},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`leftToRight is true \u2014 no reversal needed, keep the level exactly as collected.`});
+      }
+      levels.push(level);
+      steps.push({line:22,vars:{level:fmtArr(level),result:fmtLevels(levels)},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`Append this (possibly reversed) level. result so far = ${fmtLevels(levels)}`});
+      leftToRight=!leftToRight;
+      steps.push({line:23,vars:{leftToRight},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`Flip leftToRight to ${leftToRight} for the next level \u2014 that's the entire zigzag trick.`});
+    }
+    steps.push({line:25,vars:{result:fmtLevels(levels)},pointers:[],cellColors:{...colorMap},stack:[],msg:`Zigzag level order complete: ${fmtLevels(levels)} \u2014 alternating direction every row.`});
+  })();
+
+  /* ================= PHASE 3: RIGHT-SIDE VIEW ================= */
+  (function runRightSideView(){
+    let queue=[0]; const result=[]; let colorMap={};
+    steps.push({line:27,vars:{phase:'RIGHT-SIDE VIEW'},pointers:[],cellColors:{},stack:[...queue],msg:'Phase 3 of 3 \u2014 Right-Side View: same level-by-level BFS again, but this time only keep the LAST node processed in each level \u2014 that\'s exactly the node you\'d see standing to the right of the tree.'});
+    while(queue.length){
+      const size=queue.length;
+      steps.push({line:29,vars:{queueSize:size},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`Loop while the queue isn't empty. This level has ${size} node(s) \u2014 snapshot the size first, exactly like before.`});
+      for(let i=0;i<size;i++){
+        steps.push({line:30,vars:{i,size},pointers:[],cellColors:{...colorMap},stack:[...queue],msg:`Processing position ${i} of ${size} in this level (positions are 0-indexed, so ${size-1} is the LAST one).`});
+        const node=queue.shift();
+        colorMap={...colorMap,[node]:'amber'};
+        steps.push({line:31,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...queue],msg:`Poll node ${arr[node]} from the front of the queue, same FIFO order as always.`});
+        const isLast = i===size-1;
+        if(isLast){
+          result.push(arr[node]);
+          colorMap={...colorMap,[node]:'violet'};
+          steps.push({line:32,vars:{node:arr[node],i,'size-1':size-1,result:fmtArr(result)},pointers:[{idx:node,label:'\u2713',color:'violet'}],cellColors:{...colorMap},stack:[...queue],msg:`i (${i}) equals size-1 (${size-1}) \u2014 this IS the last node in the level, meaning it's the rightmost visible node. Add it: result = ${fmtArr(result)}`});
+        } else {
+          steps.push({line:32,vars:{node:arr[node],i,'size-1':size-1},pointers:[{idx:node,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...queue],msg:`i (${i}) is not size-1 (${size-1}) yet \u2014 this node is hidden behind a node further right in the same level, so it's skipped.`});
+        }
+        if(left[node]!==-1){ queue.push(left[node]); steps.push({line:33,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'},{idx:left[node],label:'L',color:'teal'}],cellColors:{...colorMap},stack:[...queue],msg:`Offer the left child, node ${arr[left[node]]}, for the next level.`}); }
+        if(right[node]!==-1){ queue.push(right[node]); steps.push({line:34,vars:{node:arr[node]},pointers:[{idx:node,label:'cur',color:'amber'},{idx:right[node],label:'R',color:'rose'}],cellColors:{...colorMap},stack:[...queue],msg:`Offer the right child, node ${arr[right[node]]}, for the next level.`}); }
+      }
+    }
+    steps.push({line:37,vars:{result:fmtArr(result)},pointers:[],cellColors:{...colorMap},stack:[],msg:`Right-side view complete: ${fmtArr(result)} \u2014 the last node visited in every level, top to bottom. All three BFS traversals done.`});
+  })();
+
+  return {steps, code, arr, structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Trees – Top-Down Approach (Maximum Depth) ===================== */
+function buildTopDownApproach(){
+  // Tree (0-indexed level-order array, -1 = null child):
+  //            1(0)
+  //          /      \
+  //        2(1)      3(2)
+  //       /   \          \
+  //     4(3)  5(4)       6(6)
+  //            \
+  //           7(9)
+  const arr   = [1,2,3,4,5,'\u00b7',6,'\u00b7','\u00b7','\u00b7',7];
+  const left  = {0:1, 1:3, 2:-1, 3:-1, 4:9, 6:-1, 9:-1};
+  const right = {0:2, 1:4, 2:6, 3:-1, 4:-1, 6:-1, 9:-1};
+
+  const code=[
+"int answer = 0;",
+"",
+"void maxDepth(TreeNode node, int depth) {",
+"    if (node == null) return;",
+"    if (node.left == null && node.right == null) {",
+"        answer = Math.max(answer, depth);",
+"    }",
+"    maxDepth(node.left, depth + 1);",
+"    maxDepth(node.right, depth + 1);",
+"}",
+"",
+"int solve(TreeNode root) {",
+"    maxDepth(root, 1);",
+"    return answer;",
+"}"];
+
+  const steps=[];
+  const callStack=[];
+  let answer=0;
+  let colorMap={};
+
+  steps.push({line:0,vars:{answer:0},pointers:[],cellColors:{},stack:[...callStack],msg:'Top-down: keep one piece of state (the answer) OUTSIDE the recursion, and carry information DOWN through parameters as calls descend — the opposite of returning values back up.'});
+  steps.push({line:15,vars:{},pointers:[],cellColors:{},stack:[...callStack],msg:'Kick things off: maxDepth(root, 1) — the root itself counts as depth 1, and that depth value gets handed down to every call from here.'});
+
+  (function maxDepth(id, depth){
+    callStack.push({id,depth});
+    colorMap={...colorMap,[id]:'amber'};
+    steps.push({line:2,vars:{node:arr[id],depth},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg:`Call maxDepth(node ${arr[id]}, depth=${depth}) — depth was computed by the PARENT and simply passed down; this call never has to ask its children for anything.`});
+
+    steps.push({line:3,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg:'node is not null — keep going instead of returning.'});
+
+    const isLeaf = left[id]===-1 && right[id]===-1;
+    if(isLeaf){
+      const improved = depth>answer;
+      const oldAnswer=answer;
+      answer=Math.max(answer,depth);
+      colorMap={...colorMap,[id]:'violet'};
+      steps.push({line:5,vars:{node:arr[id],depth,answer},pointers:[{idx:id,label:'leaf',color:'violet'}],cellColors:{...colorMap},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg: improved? `node ${arr[id]} is a LEAF — this is exactly where top-down pays off the depth it's been carrying. answer = max(${oldAnswer}, ${depth}) = ${answer}.` : `node ${arr[id]} is a LEAF at depth ${depth}, but that doesn't beat the current answer (${answer}) — no update.`});
+    } else {
+      steps.push({line:5,vars:{node:arr[id],depth},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg:`node ${arr[id]} is not a leaf — nothing to record here, just keep pushing depth further down.`});
+    }
+
+    if(left[id]!==-1){
+      steps.push({line:8,vars:{node:arr[id],'depth+1':depth+1},pointers:[{idx:id,label:'cur',color:'amber'},{idx:left[id],label:'L',color:'teal'}],cellColors:{...colorMap},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg:`Recurse left into node ${arr[left[id]]}, handing it depth+1 = ${depth+1} — the child receives the answer to "how deep am I" before it even starts.`});
+      maxDepth(left[id],depth+1);
+    } else {
+      steps.push({line:8,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg:'node.left is null — the base case on line 4 will return immediately, nothing to pass down.'});
+    }
+    if(right[id]!==-1){
+      steps.push({line:9,vars:{node:arr[id],'depth+1':depth+1},pointers:[{idx:id,label:'cur',color:'amber'},{idx:right[id],label:'R',color:'rose'}],cellColors:{...colorMap},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg:`Recurse right into node ${arr[right[id]]}, handing it depth+1 = ${depth+1}.`});
+      maxDepth(right[id],depth+1);
+    } else {
+      steps.push({line:9,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg:'node.right is null — the base case on line 4 will return immediately, nothing to pass down.'});
+    }
+
+    callStack.pop();
+    steps.push({line:10,vars:{node:arr[id],answer},pointers:[],cellColors:{...colorMap},stack:[...callStack.map(f=>`${arr[f.id]} @ d${f.depth}`)],msg:`Return from maxDepth(node ${arr[id]}) — notice it returns NOTHING (void). Top-down never combines child results on the way back up; all the work already happened on the way down.`});
+  })(0,1);
+
+  steps.push({line:16,vars:{answer},pointers:[],cellColors:{...colorMap},stack:[],msg:`Done. answer = ${answer} — the maximum depth found, discovered entirely by carrying depth DOWNWARD through parameters and updating one shared variable at each leaf, never by returning values back up.`});
+
+  return {steps, code, arr, structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Trees – Bottom-Up Approach (Height of Tree) ===================== */
+function buildBottomUpApproach(){
+  // Tree (0-indexed level-order array, -1 = null child):
+  //            1(0)
+  //          /      \
+  //        2(1)      3(2)
+  //       /   \          \
+  //     4(3)  5(4)       6(6)
+  const arr   = [1,2,3,4,5,'\u00b7',6];
+  const left  = {0:1, 1:3, 2:-1, 3:-1, 4:-1, 6:-1};
+  const right = {0:2, 1:4, 2:6, 3:-1, 4:-1, 6:-1};
+
+  const code=[
+"int height(TreeNode node) {",
+"    if (node == null) {",
+"        return 0;",
+"    }",
+"    int leftHeight = height(node.left);",
+"    int rightHeight = height(node.right);",
+"    return 1 + Math.max(leftHeight, rightHeight);",
+"}",
+"",
+"int solve(TreeNode root) {",
+"    return height(root);",
+"}"];
+
+  const steps=[];
+  const callStack=[];
+  let colorMap={};
+  const fmtStack=()=>callStack.map(f=>`${f.label} @ ${arr[f.id]}`);
+
+  steps.push({line:9,vars:{},pointers:[],cellColors:{},stack:[],msg:'Bottom-up: unlike top-down, no state is carried DOWN through parameters. Instead, each call RETURNS a value, and the parent COMBINES its children\'s returned values on the way back UP the call stack — that combining step is where the real work happens.'});
+  steps.push({line:10,vars:{},pointers:[],cellColors:{},stack:[],msg:'Kick things off: solve(root) calls height(root) — no depth, no running total handed down, just a plain recursive call.'});
+
+  function heightOf(id){
+    if(id===-1) return 0;
+    const l = left[id]!==-1 ? 1+Math.max(heightOf(left[id]),0) : 0; // dummy, real recursion below
+    return 0;
+  }
+
+  (function height(id, parentLabel){
+    if(id===-1){
+      steps.push({line:1,vars:{node:'null'},pointers:[],cellColors:{...colorMap},stack:fmtStack(),msg:`Call height(null). node is null — this is the base case: an empty subtree has height 0.`});
+      steps.push({line:2,vars:{returns:0},pointers:[],cellColors:{...colorMap},stack:fmtStack(),msg:`Return 0 immediately — nothing carried down, nothing computed, just a plain return value heading back UP to whichever call made this call.`});
+      return 0;
+    }
+
+    callStack.push({id,label:`height(${arr[id]})`});
+    colorMap={...colorMap,[id]:'amber'};
+    steps.push({line:0,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:fmtStack(),msg:`Call height(node ${arr[id]}) — push a new frame. This call doesn't yet know its own answer; it must first ask both children and wait for their returns.`});
+    steps.push({line:1,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap,[id]:'amber'},stack:fmtStack(),msg:'node is not null — keep going instead of returning the base case.'});
+
+    steps.push({line:4,vars:{node:arr[id]},pointers:[{idx:id,label:'cur',color:'amber'},...(left[id]!==-1?[{idx:left[id],label:'L',color:'teal'}]:[])],cellColors:{...colorMap},stack:fmtStack(),msg:`Recurse into the LEFT subtree first — this call must wait here until height(node.left) fully returns before it can proceed.`});
+    const leftHeight = height(left[id], 'L');
+    colorMap={...colorMap,[id]:'amber'};
+    steps.push({line:4,vars:{node:arr[id],leftHeight},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:fmtStack(),msg:`height(node.left) has returned — leftHeight = ${leftHeight}. That value travelled UP from the child call into this one.`});
+
+    steps.push({line:5,vars:{node:arr[id],leftHeight},pointers:[{idx:id,label:'cur',color:'amber'},...(right[id]!==-1?[{idx:right[id],label:'R',color:'rose'}]:[])],cellColors:{...colorMap},stack:fmtStack(),msg:`Now recurse into the RIGHT subtree — same wait-for-the-return pattern.`});
+    const rightHeight = height(right[id], 'R');
+    colorMap={...colorMap,[id]:'amber'};
+    steps.push({line:5,vars:{node:arr[id],leftHeight,rightHeight},pointers:[{idx:id,label:'cur',color:'amber'}],cellColors:{...colorMap},stack:fmtStack(),msg:`height(node.right) has returned — rightHeight = ${rightHeight}.`});
+
+    const result = 1 + Math.max(leftHeight, rightHeight);
+    colorMap={...colorMap,[id]:'violet'};
+    steps.push({line:6,vars:{node:arr[id],leftHeight,rightHeight,result},pointers:[{idx:id,label:'\u2713',color:'violet'}],cellColors:{...colorMap},stack:fmtStack(),msg:`THIS is the combining step, the heart of bottom-up: 1 + max(leftHeight, rightHeight) = 1 + max(${leftHeight}, ${rightHeight}) = ${result}. Node ${arr[id]}'s own answer only exists now, built from both children's answers.`});
+
+    callStack.pop();
+    steps.push({line:6,vars:{node:arr[id],returns:result},pointers:[],cellColors:{...colorMap},stack:fmtStack(),msg:`Return ${result} from height(node ${arr[id]}) — pop this frame. That value now travels further up, to be combined by node ${arr[id]}'s own parent (if any).`});
+    return result;
+  })(0);
+
+  steps.push({line:10,vars:{finalHeight:1+Math.max( (left[0]!==-1?1:0), 0 )},pointers:[],cellColors:{...colorMap},stack:[],msg:`Done. The tree's height is fully known only once the very last return value reaches solve() — nothing was ever written to a shared variable; every answer was built purely by combining values on the way back up.`});
+
+  return {steps, code, arr, structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Trees – Path Based – Max Path Sum ===================== */
+function buildMaxPathSum(){
+  // Classic tree: root -10, left child 9, right child 20 (whose children are 15 and 7)
+  // Best path: 15 -> 20 -> 7 = 42
+  const nodes = [
+    {val:-10, left:1, right:2}, // 0 (root)
+    {val:9,   left:-1, right:-1}, // 1
+    {val:20,  left:3, right:4},   // 2
+    {val:15,  left:-1, right:-1}, // 3
+    {val:7,   left:-1, right:-1}  // 4
+  ];
+  const arr = nodes.map(n=>n.val);
+  const code=[
+"int maxSum = Integer.MIN_VALUE;",
+"int maxGain(TreeNode node) {",
+"    if (node == null) return 0;",
+"    int leftGain = Math.max(maxGain(node.left), 0);",
+"    int rightGain = Math.max(maxGain(node.right), 0);",
+"    int priceNewPath = node.val + leftGain + rightGain;",
+"    maxSum = Math.max(maxSum, priceNewPath);",
+"    return node.val + Math.max(leftGain, rightGain);",
+"}"];
+
+  const steps=[];
+  let maxSum = -Infinity;
+  const callStack=[];
+  const disp=(v)=> v===-Infinity ? '-\u221e' : v;
+  const P=(idx,label,color)=>[{idx,label,color}];
+
+  steps.push({line:0,vars:{maxSum:disp(maxSum)},pointers:[],cellColors:{},stack:[],msg:'maxSum starts at negative infinity — it will track the best path sum found anywhere in the tree, not just paths that pass through the root.'});
+
+  function gain(idx){
+    if(idx===-1){
+      steps.push({line:2,vars:{node:'null'},pointers:[],cellColors:{},stack:[...callStack],msg:'This child does not exist — a null node contributes nothing, so return 0 immediately.'});
+      return 0;
+    }
+    callStack.push(idx);
+    const node=nodes[idx];
+    steps.push({line:1,vars:{node:`node(${idx})`,'node.val':node.val},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Enter maxGain on node ${idx} (value ${node.val}).`});
+    steps.push({line:2,vars:{node:idx},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`node ${idx} is not null — keep going.`});
+
+    steps.push({line:3,vars:{},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Recurse into the left child to find leftGain — the best (non-negative) contribution the left subtree can add.`});
+    const leftRaw=gain(node.left);
+    const leftGain=Math.max(leftRaw,0);
+    steps.push({line:3,vars:{node:idx,leftSubtreeReturned:leftRaw,leftGain},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Back at node ${idx}. Left subtree returned ${leftRaw} — leftGain = max(${leftRaw}, 0) = ${leftGain}. A negative contribution gets clipped to 0, since including it would only make any path worse.`});
+
+    steps.push({line:4,vars:{node:idx,leftGain},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Recurse into the right child to find rightGain, the same way.`});
+    const rightRaw=gain(node.right);
+    const rightGain=Math.max(rightRaw,0);
+    steps.push({line:4,vars:{node:idx,rightSubtreeReturned:rightRaw,rightGain},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Back at node ${idx}. Right subtree returned ${rightRaw} — rightGain = max(${rightRaw}, 0) = ${rightGain}.`});
+
+    const priceNewPath=node.val+leftGain+rightGain;
+    steps.push({line:5,vars:{node:idx,'node.val':node.val,leftGain,rightGain,priceNewPath},pointers:P(idx,'node','violet'),cellColors:{[idx]:'violet'},stack:[...callStack],msg:`priceNewPath = node.val + leftGain + rightGain = ${node.val} + ${leftGain} + ${rightGain} = ${priceNewPath} — the best path that bends through this node, using both children at once.`});
+
+    const improved=priceNewPath>maxSum;
+    maxSum=Math.max(maxSum,priceNewPath);
+    steps.push({line:6,vars:{priceNewPath,maxSum:disp(maxSum)},pointers:P(idx,improved?'\u2713 best':'node',improved?'violet':'amber'),cellColors:{[idx]:improved?'violet':'amber'},stack:[...callStack],msg: improved? `New global best — maxSum updates to ${maxSum}.` : `Not better than the current best — maxSum stays ${disp(maxSum)}.`});
+
+    const ret=node.val+Math.max(leftGain,rightGain);
+    steps.push({line:7,vars:{node:idx,'node.val':node.val,leftGain,rightGain,returnedUp:ret},pointers:P(idx,'return','teal'),cellColors:{[idx]:'teal'},stack:[...callStack],msg:`Return node.val + max(leftGain, rightGain) = ${node.val} + max(${leftGain}, ${rightGain}) = ${ret} to the parent — a path continuing upward can only pass through ONE child, never both.`});
+
+    callStack.pop();
+    return ret;
+  }
+
+  gain(0);
+  steps.push({line:8,vars:{maxSum},pointers:[],cellColors:{},stack:[],msg:`Done. The maximum path sum anywhere in the tree is ${maxSum}.`});
+
+  return {steps,code,arr,structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Trees – Path Based – Diameter / Height / Depth ===================== */
+function buildDiameterHeightDepth(){
+  // Tree:
+  //         1
+  //        / \
+  //       2   3
+  //      / \
+  //     4   5
+  // Diameter (edges) = 3, via path 4 -> 2 -> 1 -> 3
+  const nodes = [
+    {val:1, left:1, right:2}, // 0 (root)
+    {val:2, left:3, right:4}, // 1
+    {val:3, left:-1, right:-1}, // 2
+    {val:4, left:-1, right:-1}, // 3
+    {val:5, left:-1, right:-1}  // 4
+  ];
+  const arr = nodes.map(n=>n.val);
+  const code=[
+"int diameter = 0;",
+"int height(TreeNode node) {",
+"    if (node == null) return -1;",
+"    int leftHeight = height(node.left);",
+"    int rightHeight = height(node.right);",
+"    diameter = Math.max(diameter, leftHeight + rightHeight + 2);",
+"    return 1 + Math.max(leftHeight, rightHeight);",
+"}"];
+
+  const steps=[];
+  let diameter = -Infinity;
+  const callStack=[];
+  const disp=(v)=> v===-Infinity ? '-\u221e' : v;
+  const P=(idx,label,color)=>[{idx,label,color}];
+
+  steps.push({line:0,vars:{diameter:0},pointers:[],cellColors:{},stack:[],msg:'diameter starts at 0 — it will track the longest path (in edges) found between any two nodes anywhere in the tree, not just paths through the root.'});
+  diameter = 0;
+
+  function height(idx){
+    if(idx===-1){
+      steps.push({line:2,vars:{node:'null'},pointers:[],cellColors:{},stack:[...callStack],msg:'This child does not exist — by convention, a null node has height -1, so a leaf (whose children are both null) correctly computes to height 0.'});
+      return -1;
+    }
+    callStack.push(idx);
+    const node=nodes[idx];
+    steps.push({line:1,vars:{node:`node(${idx})`,'node.val':node.val},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Enter height() on node ${idx} (value ${node.val}).`});
+    steps.push({line:2,vars:{node:idx},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`node ${idx} is not null — keep going.`});
+
+    steps.push({line:3,vars:{},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Recurse into the left child to find leftHeight.`});
+    const leftHeight=height(node.left);
+    steps.push({line:3,vars:{node:idx,leftHeight},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Back at node ${idx}. leftHeight = ${leftHeight}.`});
+
+    steps.push({line:4,vars:{node:idx,leftHeight},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Recurse into the right child to find rightHeight.`});
+    const rightHeight=height(node.right);
+    steps.push({line:4,vars:{node:idx,leftHeight,rightHeight},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],msg:`Back at node ${idx}. rightHeight = ${rightHeight}.`});
+
+    const candidateDiameter = leftHeight+rightHeight+2;
+    const improved = candidateDiameter>diameter;
+    steps.push({line:5,vars:{node:idx,leftHeight,rightHeight,'leftHeight+rightHeight+2':candidateDiameter,diameterBefore:diameter},pointers:P(idx,improved?'\u2713 best':'node',improved?'violet':'amber'),cellColors:{[idx]:improved?'violet':'amber'},stack:[...callStack],msg:`A path could pass straight through node ${idx}, down its left subtree and down its right subtree: length = leftHeight + rightHeight + 2 = ${leftHeight} + ${rightHeight} + 2 = ${candidateDiameter} edges.`});
+    diameter=Math.max(diameter,candidateDiameter);
+    steps.push({line:5,vars:{diameter},pointers:P(idx,improved?'\u2713 best':'node',improved?'violet':'amber'),cellColors:{[idx]:improved?'violet':'amber'},stack:[...callStack],msg: improved? `New global best — diameter updates to ${diameter} edges.` : `Not better than the current best — diameter stays ${diameter} edges.`});
+
+    const h=1+Math.max(leftHeight,rightHeight);
+    steps.push({line:6,vars:{node:idx,leftHeight,rightHeight,heightReturned:h},pointers:P(idx,'return','teal'),cellColors:{[idx]:'teal'},stack:[...callStack],msg:`Return 1 + max(leftHeight, rightHeight) = 1 + max(${leftHeight}, ${rightHeight}) = ${h} to the parent — a single upward path can only continue through ONE child, so only the taller side matters going up.`});
+
+    callStack.pop();
+    return h;
+  }
+
+  const finalHeight = height(0);
+  steps.push({line:7,vars:{treeHeight:finalHeight,diameter},pointers:[],cellColors:{},stack:[],msg:`Done. The tree's overall height is ${finalHeight} edges from the root, and the diameter — the longest path between any two nodes — is ${diameter} edges.`});
+
+  return {steps,code,arr,structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Trees – BST – Binary Search Tree Operations ===================== */
+function buildBSTOperations(){
+  // BST:
+  //          50
+  //        /    \
+  //      30      70
+  //     /  \    /  \
+  //    20  40  60  80
+  const nodes = [
+    {val:50, left:1, right:2}, // 0 (root)
+    {val:30, left:3, right:4}, // 1
+    {val:70, left:5, right:6}, // 2
+    {val:20, left:-1, right:-1}, // 3
+    {val:40, left:-1, right:-1}, // 4
+    {val:60, left:-1, right:-1}, // 5
+    {val:80, left:-1, right:-1}  // 6
+  ];
+  const arrDisplay = nodes.map(n=>n.val);
+  arrDisplay.push('\u00b7'); // slot 7 — reserved for a node that may be inserted later
+
+  const code=[
+"// Search",
+"TreeNode search(TreeNode node, int target) {",
+"    if (node == null || node.val == target) return node;",
+"    if (target < node.val) return search(node.left, target);",
+"    return search(node.right, target);",
+"}",
+"",
+"// Insert",
+"TreeNode insert(TreeNode node, int val) {",
+"    if (node == null) return new TreeNode(val);",
+"    if (val < node.val) node.left = insert(node.left, val);",
+"    else if (val > node.val) node.right = insert(node.right, val);",
+"    return node;",
+"}"];
+
+  const steps=[];
+  const callStack=[];
+  const P=(idx,label,color)=>[{idx,label,color}];
+
+  /* ---------------- Phase 1: search(60) ---------------- */
+  steps.push({line:1,vars:{target:60},pointers:[],cellColors:{},stack:[],arrOverride:[...arrDisplay],msg:'Search for 60 in the BST — at every node, compare the target against node.val to decide which single side can possibly contain it.'});
+
+  function search(idx,target){
+    if(idx===-1){
+      steps.push({line:2,vars:{node:'null',target},pointers:[],cellColors:{},stack:[...callStack],arrOverride:[...arrDisplay],msg:'Hit an empty spot — the target does not exist along this path.'});
+      return -1;
+    }
+    callStack.push(idx);
+    const node=nodes[idx];
+    steps.push({line:2,vars:{node:`node(${idx})`,'node.val':node.val,target},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`At node ${idx} (value ${node.val}). It's not null — does it equal the target (${target})?`});
+    if(node.val===target){
+      steps.push({line:2,vars:{found:idx},pointers:P(idx,'\u2713','violet'),cellColors:{[idx]:'violet'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`node.val equals target — found it at node ${idx}. Return this node.`});
+      callStack.pop();
+      return idx;
+    }
+    if(target<node.val){
+      steps.push({line:3,vars:{target,'node.val':node.val},pointers:P(idx,'node','amber'),cellColors:{[idx]:'rose'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`${target} < ${node.val} — everything in the RIGHT subtree is guaranteed bigger than ${node.val}, so only the left subtree can possibly hold ${target}. Recurse left.`});
+      const res=search(node.left,target);
+      callStack.pop();
+      return res;
+    } else {
+      steps.push({line:4,vars:{target,'node.val':node.val},pointers:P(idx,'node','amber'),cellColors:{[idx]:'rose'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`${target} > ${node.val} — everything in the LEFT subtree is guaranteed smaller than ${node.val}, so only the right subtree can possibly hold ${target}. Recurse right.`});
+      const res=search(node.right,target);
+      callStack.pop();
+      return res;
+    }
+  }
+
+  const foundIdx=search(0,60);
+  steps.push({line:5,vars:{result: foundIdx===-1?'not found':`node(${foundIdx})`},pointers:[],cellColors:{},stack:[],arrOverride:[...arrDisplay],msg:`Search complete — target 60 ${foundIdx===-1?'was not found':`was found at node ${foundIdx}`}. Only one root-to-node path was ever touched, thanks to the BST ordering property.`});
+
+  /* ---------------- Phase 2: insert(45) ---------------- */
+  steps.push({line:9,vars:{valToInsert:45},pointers:[],cellColors:{},stack:[],arrOverride:[...arrDisplay],msg:'Now insert 45 — the exact same left/right comparison logic walks down to the correct empty spot, then a brand-new node is created there.'});
+
+  function insertRec(idx,val){
+    if(idx===-1){
+      const newIdx=nodes.length;
+      nodes.push({val,left:-1,right:-1});
+      arrDisplay[newIdx]=val;
+      steps.push({line:9,vars:{val,newNodeIdx:newIdx},pointers:P(newIdx,'new','violet'),cellColors:{[newIdx]:'violet'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`Reached an empty spot — create a brand-new node here holding ${val}. This becomes node ${newIdx}.`});
+      return newIdx;
+    }
+    callStack.push(idx);
+    const node=nodes[idx];
+    steps.push({line:8,vars:{node:`node(${idx})`,'node.val':node.val,val},pointers:P(idx,'node','amber'),cellColors:{[idx]:'amber'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`At node ${idx} (value ${node.val}). Compare ${val} against it to pick a side.`});
+    if(val<node.val){
+      steps.push({line:10,vars:{val,'node.val':node.val},pointers:P(idx,'node','amber'),cellColors:{[idx]:'rose'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`${val} < ${node.val} — recurse into the left subtree; node.left gets reassigned to whatever comes back.`});
+      const newLeft=insertRec(node.left,val);
+      node.left=newLeft;
+      steps.push({line:10,vars:{node:idx,'node.left':newLeft},pointers:P(idx,'node','teal'),cellColors:{[idx]:'teal'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`Back at node ${idx} — node.left is now set to node ${newLeft}.`});
+    } else if(val>node.val){
+      steps.push({line:11,vars:{val,'node.val':node.val},pointers:P(idx,'node','amber'),cellColors:{[idx]:'rose'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`${val} > ${node.val} — recurse into the right subtree; node.right gets reassigned to whatever comes back.`});
+      const newRight=insertRec(node.right,val);
+      node.right=newRight;
+      steps.push({line:11,vars:{node:idx,'node.right':newRight},pointers:P(idx,'node','teal'),cellColors:{[idx]:'teal'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`Back at node ${idx} — node.right is now set to node ${newRight}.`});
+    } else {
+      steps.push({line:11,vars:{val,'node.val':node.val},pointers:P(idx,'node','violet'),cellColors:{[idx]:'violet'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`${val} already exists at node ${idx} — a standard BST simply ignores a duplicate insert, nothing changes here.`});
+    }
+    steps.push({line:12,vars:{node:idx},pointers:P(idx,'return','teal'),cellColors:{[idx]:'teal'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`Return node ${idx} unchanged upward — only the single path from root to the insertion point is ever touched.`});
+    callStack.pop();
+    return idx;
+  }
+
+  insertRec(0,45);
+  steps.push({line:13,vars:{},pointers:[],cellColors:{},stack:[],arrOverride:[...arrDisplay],msg:`Done. 45 is now in the tree as a new leaf, and the BST ordering property still holds everywhere.`});
+
+  return {steps,code,arr:arrDisplay,structureType:'stack'};
+}
+
+  /* ===================== PATTERN: Recursion – Backtracking Exploration – Decision Tree ===================== */
+function buildDecisionTree(){
+  // Classic "include or exclude" decision tree over nums = [1,2,3]
+  // At every index there are exactly two branches: include nums[index] or skip it.
+  const nums=[1,2,3];
+  const code=[
+"void explore(int index, List<Integer> path) {",
+"    if (index == nums.length) {",
+"        result.add(new ArrayList<>(path));",
+"        return;",
+"    }",
+"    path.add(nums[index]);",
+"    explore(index + 1, path);",
+"    path.remove(path.size() - 1);",
+"    explore(index + 1, path);",
+"}"];
+
+  const steps=[];
+  const callStack=[]; // labels like "idx1(incl)" for the visual call stack
+  const path=[];
+  const result=[];
+  const arrDisplay=[...nums]; // the input array cells, colored to show include/exclude choices at each step
+  const P=(idx,label,color)=>[{idx,label,color}];
+
+  function fmtPath(){ return path.length? `[${path.join(', ')}]` : '[]'; }
+  function fmtResult(){ return result.length? result.map(r=>`[${r.join(', ')}]`).join(' ') : '(none yet)'; }
+
+  function explore(index, decisionLabel){
+    callStack.push(decisionLabel);
+    const cc={};
+    for(let k=0;k<index;k++){ cc[k] = path.includes(nums[k]) ? 'teal' : 'rose'; }
+    if(index===nums.length){
+      steps.push({line:1,vars:{index,path:fmtPath()},pointers:[],cellColors:cc,stack:[...callStack],arrOverride:[...arrDisplay],msg:`index (${index}) reached the end of nums — this leaf of the decision tree represents one complete choice for every element.`});
+      const snapshot=[...path];
+      result.push(snapshot);
+      steps.push({line:2,vars:{path:fmtPath(),result:fmtResult()},pointers:[],cellColors:cc,stack:[...callStack],arrOverride:[...arrDisplay],msg:`Record this path as a finished subset: ${fmtPath()}. Total subsets found so far: ${result.length}.`});
+      steps.push({line:3,vars:{},pointers:[],cellColors:cc,stack:[...callStack],arrOverride:[...arrDisplay],msg:`Return — this branch of the decision tree is fully explored, backtrack to the parent call.`});
+      callStack.pop();
+      return;
+    }
+
+    steps.push({line:0,vars:{index,'nums[index]':nums[index],path:fmtPath()},pointers:P(index,'idx','amber'),cellColors:cc,stack:[...callStack],arrOverride:[...arrDisplay],msg:`At index ${index} — the decision tree branches in exactly two directions here: include nums[${index}] (=${nums[index]}), or skip it.`});
+
+    // Branch 1: INCLUDE
+    path.push(nums[index]);
+    steps.push({line:5,vars:{index,included:nums[index],path:fmtPath()},pointers:P(index,'incl','violet'),cellColors:{...cc,[index]:'violet'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`CHOOSE: add nums[${index}]=${nums[index]} to the path. path = ${fmtPath()}.`});
+    steps.push({line:6,vars:{nextIndex:index+1},pointers:P(index,'\u2192 incl','violet'),cellColors:{...cc,[index]:'violet'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`EXPLORE: recurse into index ${index+1} with ${nums[index]} included — this dives down the LEFT branch of the decision tree.`});
+    explore(index+1, `idx${index+1}(after incl ${nums[index]})`);
+    const removed=path.pop();
+    steps.push({line:7,vars:{index,removed,path:fmtPath()},pointers:P(index,'unchoose','rose'),cellColors:{...cc,[index]:'rose'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`UNCHOOSE: remove ${removed} from the path to undo that choice. path = ${fmtPath()} — the tree state is now back to exactly what it was before the include branch.`});
+
+    // Branch 2: EXCLUDE
+    steps.push({line:8,vars:{nextIndex:index+1},pointers:P(index,'\u2192 excl','teal'),cellColors:{...cc,[index]:'teal'},stack:[...callStack],arrOverride:[...arrDisplay],msg:`EXPLORE: recurse into index ${index+1} WITHOUT including nums[${index}] — this dives down the RIGHT branch of the decision tree.`});
+    explore(index+1, `idx${index+1}(after excl ${nums[index]})`);
+
+    steps.push({line:9,vars:{index},pointers:P(index,'return','amber'),cellColors:cc,stack:[...callStack],arrOverride:[...arrDisplay],msg:`Both branches from index ${index} are fully explored — return control up to the parent call.`});
+    callStack.pop();
+  }
+
+  steps.push({line:0,vars:{nums:`[${nums.join(', ')}]`},pointers:[],cellColors:{},stack:[],arrOverride:[...arrDisplay],msg:`Every element gets exactly one binary decision — include it or don't — so the whole search space forms a decision tree with 2^n leaves, one per possible subset.`});
+  explore(0,'idx0(root)');
+  steps.push({line:9,vars:{totalSubsets:result.length,result:fmtResult()},pointers:[],cellColors:{},stack:[],arrOverride:[...arrDisplay],msg:`Done. All ${result.length} leaves of the decision tree have been visited: ${fmtResult()}.`});
+
+  return {steps,code,arr:arrDisplay,structureType:'stack'};
+}
+
+  /* ===================== PATTERN 36: Backtracking — Choose–Explore–Unchoose (Subsets) ===================== */
+function buildChooseExploreUnchoose(){
+  const arr=[1,2,3];
+  const code=[
+"List<List<Integer>> result = new ArrayList<>();",
+"List<Integer> path = new ArrayList<>();",
+"backtrack(nums, 0, path, result);",
+"",
+"void backtrack(int[] nums, int start, List<Integer> path, List<List<Integer>> result) {",
+"    result.add(new ArrayList<>(path));",
+"    for (int i = start; i < nums.length; i++) {",
+"        path.add(nums[i]);",
+"        backtrack(nums, i + 1, path, result);",
+"        path.remove(path.size() - 1);",
+"    }",
+"}"];
+
+  const steps=[];
+  const path=[];        // indices into arr currently "chosen"
+  const result=[];      // list of value-arrays (completed subsets)
+
+  const fmtPath=(p)=>'['+p.map(idx=>arr[idx]).join(', ')+']';
+  const fmtResult=(r)=>r.map(s=>'['+s.join(', ')+']').join('  ');
+  const pathPointers=(extra)=>[...path.map(idx=>({idx,label:'\u2713',color:'violet'})), ...(extra||[])];
+  const pathColors=(extra)=>{const o={};path.forEach(idx=>o[idx]='violet');if(extra)Object.assign(o,extra);return o;};
+
+  steps.push({line:0,vars:{},pointers:[],cellColors:{},stack:[...path],msg:'result will collect every subset discovered along the way — start with an empty list.'});
+  steps.push({line:1,vars:{},pointers:[],cellColors:{},stack:[...path],msg:'path tracks the elements currently "chosen" on this branch of the exploration — start empty. This is the live call-stack state, shown below.'});
+  steps.push({line:2,vars:{start:0},pointers:[],cellColors:{},stack:[...path],msg:'Kick off the recursion: backtrack(nums, 0, path, result) — start=0 means every element is still available to choose.'});
+
+  function backtrack(start){
+    result.push(path.map(idx=>arr[idx]));
+    steps.push({line:5,vars:{start,path:fmtPath(path),subsetsFound:result.length},pointers:pathPointers(),cellColors:pathColors(),stack:[...path],msg:`result.add(path) — record a COPY of the current path as a valid subset: ${fmtPath(path)}. A copy matters, since path keeps changing after this line runs.`});
+
+    for(let i=start;i<arr.length;i++){
+      steps.push({line:6,vars:{start,i},pointers:pathPointers([{idx:i,label:'i',color:'teal'}]),cellColors:pathColors({[i]:'teal'}),stack:[...path],msg:`Loop i from start=${start} — only look forward, never re-use an index already chosen on this branch. Considering index ${i} (value ${arr[i]}).`});
+
+      path.push(i);
+      steps.push({line:7,vars:{i,'nums[i]':arr[i],path:fmtPath(path)},pointers:pathPointers(),cellColors:pathColors(),stack:[...path],msg:`CHOOSE: path.add(nums[${i}]) — commit to including ${arr[i]}. path = ${fmtPath(path)}`});
+
+      steps.push({line:8,vars:{nextStart:i+1},pointers:pathPointers(),cellColors:pathColors(),stack:[...path],msg:`EXPLORE: recurse with start=${i+1} — everything reachable from this deeper call automatically includes the choice just made.`});
+      backtrack(i+1);
+
+      const removed=path.pop();
+      steps.push({line:9,vars:{'removed value':arr[removed],path:fmtPath(path)},pointers:pathPointers(),cellColors:pathColors(),stack:[...path],msg:`UNCHOOSE: path.remove(last) — undo the choice of ${arr[removed]} so the next loop iteration starts from a clean path. path = ${fmtPath(path)}`});
+    }
+    steps.push({line:10,vars:{start},pointers:pathPointers(),cellColors:pathColors(),stack:[...path],msg:`Loop finished for start=${start} — every extension reachable from this point has been explored. Return control to the caller one level up.`});
+  }
+
+  backtrack(0);
+
+  steps.push({line:11,vars:{totalSubsets:result.length},pointers:[],cellColors:{},stack:[],msg:`Done. All ${result.length} subsets generated: ${fmtResult(result)}`});
+
+  return {steps,code,arr,structureType:'stack'};
+}
+
+  
+
 /* ===================== PATTERNS_DB ===================== */
 const PATTERNS_DB = {
 "Array||Two Pointers||Opposite Ends": {
@@ -2869,7 +4424,498 @@ const PATTERNS_DB = {
     {q:"When popping two operands for an operator, which one is the right-hand operand — the first pop or the second?", a:"The first pop is b, the right-hand operand, since it was pushed most recently; the second pop is a, the left-hand operand."},
     {q:"Time / space complexity?", a:"O(n) time and O(n) space — every token is pushed and popped at most once as the stack holds pending operands and results."}
   ]
-}
+},
+
+"Stack||Other Stack Patterns||Histogram Pattern": {
+  build: buildHistogramPattern,
+  problem: "Given an array of bar heights forming a histogram, find the area of the largest rectangle that can fit entirely under the histogram's outline.",
+  concept: "For any bar treated as the SHORTEST bar of a rectangle, that rectangle can stretch left and right until it hits a bar shorter than it. So walk left to right keeping a stack of indices whose heights increase from bottom to top. Whenever a new, shorter (or equal) bar appears, every taller bar sitting on top of the stack has just found its right boundary — pop each one and resolve its rectangle immediately: width is the gap between the bar now exposed underneath it (the left boundary) and the current index (the right boundary). Appending a sentinel height of 0 at the very end forces every bar still left on the stack to be resolved before the algorithm finishes.",
+  keywords: ["largest rectangle in histogram","increasing monotonic stack","width between boundaries","maximal rectangle","sentinel zero height"],
+  questions: ["Do I need the largest rectangle (or similar maximal-extent shape) that fits under a sequence of heights?","For each bar, can I express its rectangle's width as the distance to the nearest shorter bar on the left and on the right?","Would checking every pair of bars directly be an O(n²) brute force I can collapse to O(n) with a stack?"],
+  eli10: "Imagine a skyline of buildings of different heights standing side by side, and you want to find the biggest rectangular banner that could be hung flat against the skyline without poking through any building. Walking past the buildings left to right, you keep a lineup of buildings that get taller and taller. The moment you see a building that's shorter than the ones in your lineup, you know every taller building behind it can't stretch out any further to the right — so you measure how wide a banner each of them could have had, using the buildings still standing on either side as the edges, before moving on.",
+  pitfalls: ["Forgetting the sentinel bar of height 0 at the end — without it, bars still on the stack when the array ends never get their rectangles resolved.","Getting the width formula wrong — width is NOT i minus the popped index; it's i minus the NEW top of the stack (after popping) minus 1, since that new top marks the nearest still-standing shorter bar on the left.","Popping on '>' instead of '>=' — equal-height bars must also be popped, or a rectangle spanning several bars of the same height gets under-measured."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Every index is pushed once and popped at most once across the entire scan — amortized O(1) per bar, despite the nested-looking while loop and the extra sentinel iteration.",
+  memoryStack:["i (int)","h (int)","poppedIdx, height, width, area (int)"],
+  memoryHeap:"A Deque<Integer> stack of indices (kept increasing in height bottom-to-top), plus the input heights[] array.",
+  comparison:[
+    {name:"Increasing Monotonic Stack (Next Smaller)", diff:"Histogram IS an increasing monotonic stack — it just uses the moment each bar is popped to immediately compute a width and area, instead of just recording a next-smaller value."},
+    {name:"Stock Span (Decreasing Monotonic Stack)", diff:"Span looks backward for a distance to the nearest higher value using a decreasing stack; histogram looks in both directions at once for a width, using an increasing stack and resolving each bar exactly when its right boundary is discovered."}
+  ],
+  tips: ["'Largest rectangle under a histogram/skyline' is the single strongest, almost unmistakable signal for this exact increasing-stack pattern.","Always append a sentinel 0 (or -infinity) height at the end — say it out loud: 'this guarantees everything still on the stack gets resolved before the algorithm ends.'","The width formula's left boundary comes from the stack's NEW top after popping, not the popped index itself — draw a small example by hand and trace through one pop to see why."],
+  flash: [
+    {q:"What invariant does the stack maintain in the histogram pattern?", a:"Its heights increase from bottom to top — exactly the increasing monotonic stack invariant."},
+    {q:"Why append a sentinel height of 0 at the end?", a:"To force every bar still remaining on the stack to be popped and have its rectangle resolved, since nothing shorter would otherwise appear to trigger it."},
+    {q:"How is a popped bar's rectangle width computed?", a:"width = i - stack.peek() - 1 after popping (using the new top as the left boundary), or i itself if the stack is now empty."}
+  ]
+},
+
+"Queue / Deque||Core Uses||FIFO Processing": {
+  build: buildFifoProcessing,
+  problem: "Given a stream of request timestamps, count how many requests occurred within the last 3000 milliseconds (inclusive) at the time of each new request.",
+  concept: "A queue enforces strict first-in-first-out order: every new item is added at the BACK, and items are only ever removed from the FRONT, in the exact order they arrived. That ordering guarantee is exactly what this problem needs — since timestamps only ever increase, the oldest (and therefore only possibly-expired) request is always sitting at the front. So on every new ping, enqueue it at the back, then repeatedly dequeue from the front while the front value has fallen outside the 3000ms window — the remaining queue size is the answer.",
+  keywords: ["FIFO","queue enqueue dequeue","first in first out","sliding time window","recent calls","offer/poll"],
+  questions: ["Does processing order matter, and does it need to match arrival order exactly (the first thing in must be the first thing out)?","Can I guarantee that whatever's at the front of my structure is always the oldest / most overdue item?","Would checking every stored item on every new arrival be wasteful, when only the front ever needs checking?"],
+  eli10: "Imagine a line of people waiting to buy tickets. New people always join at the very back of the line. Whenever someone's ticket time runs out, they leave from the very front — and since the front person joined earliest, they're always the one whose time is closest to running out. You never need to check the middle or the back of the line for expired tickets; the front tells you everything.",
+  pitfalls: ["Using a stack (LIFO) by mistake instead of a queue (FIFO) — a stack would remove the MOST recently added item first, which breaks the arrival-order guarantee this pattern depends on.","Checking every element in the queue for expiry instead of just the front — since arrivals are added in increasing time order, only the front can possibly be expired at any moment; checking further back is wasted work.","Forgetting the window check is inclusive/exclusive as specified — an off-by-one on the boundary (< vs <=) silently changes which requests count as 'recent'."],
+  complexityTime:"O(1) amortized per call", complexitySpace:"O(W)", complexityScale:1,
+  complexityNote:"Each timestamp is enqueued exactly once and dequeued at most once over the entire stream, so total work across n calls is O(n), making each individual call O(1) amortized. Space is bounded by W, the number of requests that can fit inside one time window.",
+  memoryStack:["t (int)","threshold (int)","expired (int)","count (int)"],
+  memoryHeap:"A Deque<Integer> queue holding timestamps still inside the current window, oldest at the front, newest at the back.",
+  comparison:[
+    {name:"Monotonic Window (Sliding Window Maximum)", diff:"Both use a deque, but the monotonic window pops from the BACK based on comparing values (to stay ordered) as well as the front based on position; FIFO processing here only ever pops from the front, based purely on age — no value comparison at the back."},
+    {name:"Min / Max Stack", diff:"A stack is LIFO — the most recently pushed item comes out first; a queue is FIFO — the earliest pushed item comes out first. They solve fundamentally different ordering problems despite both being simple linear structures."}
+  ],
+  tips: ["'Process items in the order they arrived' or 'the oldest one matters first' is the strongest signal for a plain FIFO queue.","Because arrivals only ever increase in time, the front of the queue is always the *only* candidate for being expired — say that invariant out loud before coding the while loop.","This exact 'enqueue new, dequeue expired from front' shape reappears constantly: rate limiters, cache eviction (in combination with a map), and any 'events in the last X seconds/messages' counting problem."],
+  flash: [
+    {q:"Why does a queue (not a stack) fit this problem?", a:"Because requests must be processed in arrival order, and the oldest request — always at the front of a queue — is the only one that can be expired at any moment."},
+    {q:"Which end does FIFO processing add to, and which end does it remove from?", a:"Adds (enqueues) at the back; removes (dequeues) from the front — the two ends never swap roles."},
+    {q:"Time / space complexity?", a:"O(1) amortized per call, since each element is enqueued once and dequeued at most once across the whole stream; O(W) space for however many items fit in one time window."}
+  ]
+},
+
+"Queue / Deque||Core Uses||Level-wise Processing": {
+  build: buildLevelWiseProcessing,
+  problem: "Traverse a binary tree level by level, returning the node values grouped by their depth (e.g. [[3], [9, 20], [15, 7, 10, 4]]).",
+  concept: "A plain FIFO queue processes nodes in the order they were discovered, but that alone doesn't tell you where one level ends and the next begins — the queue just keeps flowing. The fix is a single extra line: before the inner loop starts, snapshot levelSize = queue.size(). That snapshot is exactly how many nodes belong to the current level, since every node enqueued so far came from the previous level, and any children enqueued during this loop are pushed to the back — after the snapshot's count — so they can never be mistaken for part of the current level.",
+  keywords: ["level order traversal","BFS on a tree","level size snapshot","group by depth","breadth-first"],
+  questions: ["Do I need to process or group nodes by their distance/depth from a starting point, not just visit them in some order?","Can I take a snapshot of 'how many items are currently waiting' before adding any new items to the same queue?","Would processing nodes one at a time, without grouping, lose information about which level each one belonged to?"],
+  eli10: "Imagine kids lining up floor by floor to leave a building, one queue for the whole building. To announce 'everyone on floor 1, please step forward now', you first count exactly how many kids are in line before any floor-2 kids get added behind them. You call forward exactly that many kids — no more — even though more keep joining the back of the line while you're doing it. That count, taken just once at the start, is what separates floor 1 from floor 2.",
+  pitfalls: ["Checking queue.isEmpty() as the loop condition for a single level instead of using a fixed levelSize snapshot — the queue keeps growing as children are added, so it never empties until the whole tree is done, not just one level.","Taking the levelSize snapshot INSIDE the inner for-loop, or recomputing queue.size() on every iteration instead of once before the loop starts — that would include children just enqueued as part of the current level by mistake.","Forgetting this needs a genuine FIFO queue, not a stack — a stack would visit children in reverse order and completely scramble which nodes belong to which level."],
+  complexityTime:"O(n)", complexitySpace:"O(w)", complexityScale:2,
+  complexityNote:"Every node is enqueued exactly once and dequeued exactly once, so total work across the whole tree is O(n). Space is bounded by w, the maximum number of nodes in any single level (the tree's widest row) — in the worst case, up to n/2 for a nearly-complete binary tree.",
+  memoryStack:["levelSize (int)","idx (int)","left, right (int)","i (int)"],
+  memoryHeap:"A Deque<Integer> queue holding node indices waiting to be processed, plus a List<List<Integer>> result grouping values by level.",
+  comparison:[
+    {name:"FIFO Processing (Number of Recent Calls)", diff:"Plain FIFO processing dequeues and enqueues continuously with no notion of 'levels' — it just keeps the front the oldest item. Level-wise processing adds the levelSize snapshot specifically to carve that same continuous flow into discrete groups."},
+    {name:"DFS (Pre / In / Post Order)", diff:"DFS uses a stack or recursion and dives all the way down one branch before backtracking, visiting nodes depth-first; level-wise processing uses a queue and visits every node at depth d before any node at depth d+1, which DFS cannot do without extra bookkeeping."}
+  ],
+  tips: ["'Level order', 'by depth', 'row by row', or 'zigzag traversal' in a problem statement are the strongest signals for this exact levelSize-snapshot technique.","Say the invariant out loud before coding: 'levelSize is captured once, before any child gets enqueued this iteration' — that one sentence prevents the most common bug.","This same skeleton (queue + levelSize snapshot) also solves right-side-view (keep only the last node of each level), zigzag traversal (reverse alternate levels), and multi-source BFS problems with only small variations."],
+  flash: [
+    {q:"What single extra step turns plain FIFO processing into level-wise processing?", a:"Snapshotting levelSize = queue.size() once, before the inner loop starts, so the loop processes exactly that many nodes — all from the current level."},
+    {q:"Why can't a stack be used instead of a queue here?", a:"A stack would process the most recently added node first, which breaks breadth-first order and would visit nodes out of level order."},
+    {q:"Time / space complexity?", a:"O(n) time — every node enqueued and dequeued exactly once; O(w) space, where w is the widest level of the tree."}
+  ]
+},
+
+  "Queue / Deque||Core Uses||Circular Queue Pattern": {
+  build: buildCircularQueuePattern,
+  problem: "Design a fixed-capacity queue backed by a plain array, supporting enqueue and dequeue in O(1), without ever shifting elements or wasting space once items are removed.",
+  concept: "A plain array-backed queue wastes the slots at the front once elements are dequeued from them — a normal array queue either has to shift everything left (O(n)) or just leaks capacity forever. A circular queue fixes this by treating the array as a ring: front and rear are tracked with modulo arithmetic, so once rear reaches the last index it wraps back around to 0 and reuses the exact slots that earlier dequeues freed up. A separate size counter (or a front==rear+1 convention) distinguishes a genuinely full ring from a genuinely empty one, since both can otherwise look identical.",
+  keywords: ["circular queue","ring buffer","fixed capacity","modulo wraparound","front rear pointers","enqueue dequeue O(1)"],
+  questions: ["Do I need a fixed-capacity queue where both enqueue and dequeue must be O(1), with no shifting?","Would a plain array queue waste space at the front once elements are dequeued, unless slots get reused?","Can front and rear both wrap around using % capacity instead of only ever moving forward?"],
+  eli10: "Imagine people boarding a merry-go-round with exactly 5 horses. As new riders board, they take the next horse going clockwise from the last one filled. When a rider gets off, their horse becomes free again — and the very next new rider can hop onto that exact freed horse once the ride comes back around, instead of the merry-go-round needing more and more horses bolted on forever.",
+  pitfalls: ["Forgetting the modulo on BOTH front and rear — only wrapping one of them breaks the ring the moment either pointer reaches the last index.","Distinguishing full from empty incorrectly — without a size counter (or sacrificing one slot), front==rear is ambiguous between 'completely empty' and 'completely full', a classic circular queue bug.","Confusing rear's meaning — some implementations treat rear as 'the last filled index' (as here, so enqueue increments rear first, then writes) while others treat it as 'the next free index' (so it writes first, then increments) — the two conventions aren't interchangeable, pick one and stay consistent."],
+  complexityTime:"O(1) per operation", complexitySpace:"O(capacity)", complexityScale:1,
+  complexityNote:"Every enqueue and dequeue does a constant amount of work — one modulo, one array write or clear, one counter update — regardless of how many operations have run before it.",
+  memoryStack:["front (int)","rear (int)","size (int)","capacity (int)"],
+  memoryHeap:"A fixed-size array data[] of length capacity, reused indefinitely as a ring buffer — no resizing, no shifting.",
+  comparison:[
+    {name:"Plain Array Queue (with shifting)", diff:"A naive array queue either shifts every remaining element left on each dequeue (O(n) per dequeue) or lets the front creep forward and wastes space forever; a circular queue reuses freed slots in O(1) via modulo instead."},
+    {name:"Monotonic Window (Deque)", diff:"A monotonic deque also wraps values in and out from both ends, but it grows/shrinks based on comparing values to maintain an ordering invariant; a circular queue's ring size is fixed and enqueue/dequeue order is strictly FIFO, with no reordering."}
+  ],
+  tips: ["'Fixed capacity' + 'O(1) enqueue and dequeue' + 'reuse freed space' is the strongest signal for a circular queue over a plain array or ArrayDeque wrapper.","Always decide up front which convention rear follows — 'last filled slot' vs 'next free slot' — and write it as a comment; mixing the two mid-implementation is the most common source of off-by-one bugs.","Track size explicitly rather than trying to infer full/empty from front and rear alone — it's a tiny bit of extra state that removes an entire category of edge-case bugs."],
+  flash: [
+    {q:"What makes a circular queue different from a plain array queue?", a:"front and rear both wrap around using modulo, so slots freed by dequeue get reused instead of being wasted or requiring a shift."},
+    {q:"Why is a separate size counter usually kept?", a:"Because front == rear alone is ambiguous — it could mean the ring is completely empty OR completely full; size disambiguates the two."},
+    {q:"Time / space complexity?", a:"O(1) time per enqueue/dequeue; O(capacity) space for the fixed-size backing array."}
+  ]
+},
+
+  "Queue / Deque||Core Uses||Deque Based": {
+  build: buildDequeBased,
+  problem: "Check whether a string is a palindrome by using a deque to compare characters from both ends at once, without ever using separate left/right index variables.",
+  concept: "A deque (double-ended queue) supports O(1) insertion and removal at BOTH ends, unlike a plain queue (front only) or a plain stack (top only). Load every character into the deque in order, then repeatedly pop one character off the front and one off the back and compare them — if they ever differ, the string isn't a palindrome. Popping from both ends simultaneously is exactly the two-pointer 'opposite ends' idea, just expressed through a data structure's own removeFirst()/removeLast() operations instead of manual index arithmetic.",
+  keywords: ["deque","double-ended queue","addFirst addLast","removeFirst removeLast","O(1) both ends","palindrome via deque"],
+  questions: ["Do I need to add or remove elements from BOTH ends of a sequence efficiently, not just one end?","Would using a plain array with manual left/right indices work just as well, but a deque expresses the same idea more directly through its own API?","Is the problem naturally symmetric — something that needs to be processed from both the front and the back at the same time?"],
+  eli10: "Imagine a line of toy blocks spelling out a word, held in a special toy chest that lets you grab a block from the very front OR the very back equally easily — unlike a normal toy box where you can only reach in from the top. To check if the word is a mirror-word, you keep grabbing one block from the front and one from the back at the same time and see if they match, all the way until you meet in the middle.",
+  pitfalls: ["Reaching for a deque when only one end is ever touched — that's just a plain queue or stack, and pulling in a deque adds unnecessary conceptual overhead.","Forgetting that deque.size() must be checked as > 1, not != 0 — with an odd-length input, one character will be left alone in the middle with no partner to compare against.","Assuming a deque backed by a plain array needs shifting on removeFirst() — a proper deque (like Java's ArrayDeque) is specifically designed so both ends are O(1), with no shifting at all."],
+  complexityTime:"O(n)", complexitySpace:"O(n)", complexityScale:2,
+  complexityNote:"Building the deque takes O(n), and the comparison loop removes exactly two elements per iteration until at most one remains — so the whole check is a single O(n) pass, with O(n) space for the deque itself.",
+  memoryStack:["first (char)","last (char)"],
+  memoryHeap:"A Deque<Character> holding every character of the string, shrinking from both ends as the comparison proceeds.",
+  comparison:[
+    {name:"Palindrome Check (Two Pointers)", diff:"The two-pointer version tracks left and right as plain integer indices into the original array and never allocates a second structure; the deque version achieves the identical effect by physically removing elements from both ends of a separate structure — same idea, different vehicle."},
+    {name:"FIFO Processing (plain Queue)", diff:"A plain queue only ever adds at the back and removes from the front — single-ended; a deque generalizes that to both ends, which is exactly what this pattern needs and a plain queue cannot provide."}
+  ],
+  tips: ["Whenever a problem needs simultaneous access to 'both ends' of a sequence — palindrome checks, sliding window maximums, browser back/forward history — a deque is worth considering before reaching for two separate structures.","Say the invariant out loud: 'addLast during setup, removeFirst and removeLast during processing' — that split is the whole shape of this pattern.","This exact building block — pop front and back together — also underlies the Monotonic Window pattern, just combined there with a value-based popping rule instead of a plain equality check."],
+  flash: [
+    {q:"What can a deque do that a plain queue or stack can't?", a:"Insert and remove from BOTH ends in O(1) — a queue only works at the front/back pair (one in, one out), a stack only at one end."},
+    {q:"Why check deque.size() > 1 instead of > 0?", a:"An odd-length input leaves one middle character with no partner — it needs no comparison, so the loop should stop before trying to pair it with itself."},
+    {q:"Time / space complexity?", a:"O(n) time — building the deque plus one full comparison pass; O(n) space for the deque holding every character."}
+  ]
+},
+
+  "Linked List||Pointer Techniques||Fast–Slow": {
+  build: buildFastSlowLinkedList,
+  problem: "Find the middle node of a singly linked list in a single pass, without knowing its length in advance and without using extra space.",
+  concept: "Use two pointers starting at the head: slow moves one node at a time, fast moves two nodes at a time. Because fast always covers exactly twice the distance slow does, the moment fast reaches the end of the list, slow — having covered only half that distance — is sitting exactly at the middle. No length counting, no second pass, and no extra memory beyond the two pointers themselves.",
+  keywords: ["fast slow pointers","find middle of linked list","tortoise and hare","two speeds one pass","runner technique"],
+  questions: ["Do I need to find a position relative to the whole list (middle, a fraction from the end) without knowing the length up front?","Can two pointers moving at different speeds reach a meaningful relationship by the time one of them runs out of list?","Would the alternative be counting the length first and then walking again — an extra pass I could avoid?"],
+  eli10: "Imagine two runners starting at the same starting line on a straight track, but one runner (fast) always takes two steps for every one step the other runner (slow) takes. By the time the fast runner reaches the finish line, the slow runner — moving at exactly half the speed — is standing exactly halfway down the track. No one had to measure the track first.",
+  pitfalls: ["Forgetting to check BOTH fast != null AND fast.next != null in the loop condition — checking only one of them risks a NullPointerException when fast.next is accessed for the second jump.","Assuming this always finds the exact center of an even-length list — with an even number of nodes, this specific version lands on the second of the two true middle nodes; some problems want the first, which needs a slightly different starting condition.","Reaching for this pattern on a problem that doesn't actually need relative-position information — if the length is already known or easy to get cheaply, a straightforward count-then-walk approach can be simpler to read."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"A single pass through the list; fast visits every node (twice as many steps as slow), so total work is still linear, and only two pointers are ever allocated.",
+  memoryStack:["slow (ListNode reference)","fast (ListNode reference)"],
+  memoryHeap:"The existing linked list nodes — no new nodes or auxiliary array are allocated; both pointers just walk the list that's already there.",
+  comparison:[
+    {name:"Same Direction Fast & Slow (Array)", diff:"The array version of fast/slow uses fast as a full scanner and slow as a write-boundary that only moves on a condition; this linked-list version instead moves BOTH pointers unconditionally every iteration, just at different fixed speeds (1 step vs 2 steps)."},
+    {name:"Cycle Detection", diff:"Cycle detection reuses the exact same fast/slow speed setup, but instead of asking 'where does fast run out of list', it asks 'do slow and fast ever land on the same node again' — the two pointers meeting is what reveals a cycle."}
+  ],
+  tips: ["Whenever a linked-list problem asks for something relative to the whole list's length (middle, kth-from-end, is-it-a-palindrome) without wanting a length-counting pass first, fast/slow at different speeds is worth trying.","Always write the loop condition as fast != null && fast.next != null together — say it out loud: 'fast needs a next AND a next-next to safely jump twice'.","This exact two-speed relationship (1x vs 2x) is the shared foundation behind finding the middle, detecting a cycle, and finding a cycle's starting node — learning the movement here pays off across all three."],
+  flash: [
+    {q:"How much faster does fast move compared to slow?", a:"Twice as fast — fast advances 2 nodes for every 1 node slow advances."},
+    {q:"Why does slow end up at the middle when fast reaches the end?", a:"Because fast always covers exactly double the distance slow does in the same number of iterations, so slow has only gone half as far by the time fast runs out of list."},
+    {q:"Time / space complexity?", a:"O(n) time — a single pass; O(1) space — just two pointer variables, no extra structure."}
+  ]
+},
+
+  "Linked List||Pointer Techniques||Cycle Detection": {
+  build: buildCycleDetection,
+  problem: "Determine whether a linked list contains a cycle, and if it does, find the exact node where the cycle begins — using O(1) extra space and no modification to the list.",
+  concept: "Floyd's Tortoise and Hare: run slow (1 step) and fast (2 steps) from the head. If the list has a cycle, fast will eventually lap slow and they'll land on the exact same node — that collision is mathematically guaranteed because, once both pointers are inside the cycle, the gap between them shrinks by exactly 1 node every iteration, so it must eventually hit 0. If fast ever reaches a true null, there's no cycle. Once a collision confirms a cycle exists, resetting slow to the head and advancing both pointers one step at a time from there makes them meet again exactly at the cycle's starting node — a consequence of the distances involved being mathematically equal.",
+  keywords: ["cycle detection","floyd's algorithm","tortoise and hare","linked list loop","fast slow meet"],
+  questions: ["Do I need to detect whether a linked structure loops back on itself, without extra memory for a visited-set?","Can two pointers moving at different fixed speeds be guaranteed to collide if and only if a cycle exists?","Do I need not just 'is there a cycle' but 'exactly where does the cycle start'?"],
+  eli10: "Imagine two runners on a circular track, one running twice as fast as the other. If the track is a straight line with an end, the fast runner just reaches the end and stops — no collision. But if the track loops back on itself, the fast runner will eventually lap the slow one from behind and bump into them, no matter how big the loop is. That bump is proof the track loops. To find exactly where the loop starts, you send one runner back to the starting line and have both jog at the same normal pace — they meet again precisely at the loop's entrance, which is a neat mathematical coincidence that always works out.",
+  pitfalls: ["Using a HashSet of visited nodes to detect a cycle instead of two pointers — that correctly detects a cycle but costs O(n) extra space, defeating the main advantage of Floyd's approach.","Forgetting phase 2 entirely and only answering 'does a cycle exist' when the problem actually wants the cycle's starting node — the collision point from phase 1 is almost never the actual start of the cycle.","Checking fast.next != null but not also fast != null (or vice versa) before the double jump — both checks are needed to safely dereference fast.next.next without an error."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Phase 1 (detecting a collision) and phase 2 (finding the cycle's start) are each a single linear pass at most; only two pointers are ever allocated, so space stays constant regardless of the list's size.",
+  memoryStack:["slow (ListNode reference)","fast (ListNode reference)","hasCycle (boolean)"],
+  memoryHeap:"The existing linked list nodes — no new nodes, visited-sets, or auxiliary arrays are allocated; both pointers simply walk the list that's already there.",
+  comparison:[
+    {name:"Fast–Slow (Find the Middle)", diff:"Finding the middle uses the exact same 1x/2x speed setup but asks 'where does fast run out of list'; cycle detection instead asks 'do slow and fast ever land on the same node again' — the loop condition and the question being answered are different, though the pointer mechanics are identical."},
+    {name:"Hash Set of Visited Nodes", diff:"A hash set correctly detects a cycle in O(n) time by remembering every node visited, but costs O(n) extra space; Floyd's two-pointer approach detects the same thing in O(1) space by relying on relative speed instead of memory."}
+  ],
+  tips: ["Whenever a linked-list problem could involve an invalid or malicious 'looping' structure, and you want O(1) space, Floyd's two-pointer technique is the standard tool.","Memorize the two-phase shape: phase 1 detects THAT a cycle exists (fast vs slow, different speeds); phase 2 finds WHERE it starts (reset one pointer to head, same speed, walk together).","The 'reset to head, walk at equal pace' trick in phase 2 isn't obvious — treat it as a fact worth memorizing directly rather than re-deriving it under pressure: the distance from head to cycle-start equals the distance from the meeting point back around to cycle-start."],
+  flash: [
+    {q:"How is a cycle confirmed to exist?", a:"slow and fast, moving at 1x and 2x speed, land on the exact same node — this is guaranteed to happen eventually if and only if the list has a cycle."},
+    {q:"How is the cycle's starting node found, once a cycle is confirmed?", a:"Reset slow to the head, keep fast at the collision point, then advance both one step at a time — they meet again exactly at the cycle's start."},
+    {q:"Time / space complexity?", a:"O(n) time across both phases; O(1) space — only two pointers are used, no matter how large the list or cycle is."}
+  ]
+},
+
+  "Linked List||Pointer Techniques||Finding Middle": {
+  build: buildFindingMiddleCounting,
+  problem: "Find the middle node of a singly linked list using a straightforward two-pass approach: count the list's length first, then walk exactly halfway.",
+  concept: "Walk the entire list once just to count how many nodes it has (n). Once the exact length is known, walk from the head again for exactly n/2 steps — that lands precisely on the middle node (the upper middle when n is even, matching the same convention as the fast/slow approach). This trades a second full pass over the list for the simplicity of never having to reason about two pointers moving at different speeds simultaneously.",
+  keywords: ["find middle of linked list","two-pass counting","n/2 steps","length then walk","alternative to fast-slow"],
+  questions: ["Do I need the exact length of the list anyway, for some other part of the problem, making a counting pass free information?","Would two-pointer fast/slow logic be harder to reason about or debug than a plain 'count then walk' approach here?","Is walking the list twice acceptable, or does the problem specifically demand a single pass?"],
+  eli10: "Imagine you want to find the exact middle bead on a long string of beads, but you can only touch one bead at a time starting from the very first one. The straightforward way: walk all the way to the end once, counting every bead as you go, so now you know there are, say, 12 beads total. Then walk from the start again, this time stopping after exactly 6 beads — that's the middle, guaranteed, because you already know precisely how far 'halfway' is.",
+  pitfalls: ["Assuming this is a single-pass technique — it deliberately walks the list TWICE, which the fast/slow pointer approach avoids by finding the middle in one pass.","Getting the target index formula backwards for even-length lists — n/2 (integer division) lands on the upper/second middle node for an even count, matching how most 'find the middle' problems define it; some variants instead want (n-1)/2 for the lower middle, so always check the problem's exact expectation.","Using this approach when the list is a stream or otherwise can't be walked twice (e.g. a true singly-linked structure with no ability to reset to the head) — fast/slow is required there instead, since it only ever needs one pass."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"Two full linear passes over the list — one to count, one to walk halfway — but since both are O(n), the total remains O(n) overall; only a couple of extra integer variables are used, so space stays O(1).",
+  memoryStack:["n (int)","cur (ListNode reference)","node (ListNode reference)","target (int)","i (int)"],
+  memoryHeap:"The existing linked list nodes — no new nodes or auxiliary arrays are allocated; both passes simply walk the list that's already there.",
+  comparison:[
+    {name:"Fast–Slow (Find the Middle)", diff:"Fast/slow finds the middle in a SINGLE pass by moving two pointers at 1x and 2x speed simultaneously; this counting approach instead makes the length explicit first and walks a second, separate pass — more passes, but arguably easier to reason about since only one pointer moves at a time in each phase."},
+    {name:"Cycle Detection", diff:"Cycle detection reuses the fast/slow speed relationship to detect a loop rather than find a midpoint; the counting approach here fundamentally assumes the list terminates, since it needs to walk all the way to a real null to count it — it cannot be used on a list containing a cycle."}
+  ],
+  tips: ["When a problem already needs the list's length for some other reason, this counting approach effectively gives you the middle 'for free' on the second pass — no need to also implement fast/slow separately.","This is the natural fallback anytime two-pointer speed logic feels error-prone under interview pressure: count first, then walk halfway, is much harder to get subtly wrong.","Recognize the tradeoff explicitly: fast/slow is one pass but requires careful simultaneous pointer reasoning; counting is two passes but each phase is a simple, independent walk."],
+  flash: [
+    {q:"How many full passes over the list does this approach take?", a:"Two — one to count the total length n, and a second to walk exactly n/2 steps from the head."},
+    {q:"Why walk exactly n/2 steps on the second pass?", a:"Because the exact length is now known, so n/2 is guaranteed to land precisely on the middle node (the upper middle for even-length lists)."},
+    {q:"When would fast/slow be preferred over this counting approach instead?", a:"When only a single pass over the list is allowed or desirable — fast/slow finds the middle without ever needing to know the length up front."}
+  ]
+},
+
+  "Linked List||Reversal||Full Reverse": {
+  build: buildFullReverseLinkedList,
+  problem: "Reverse a singly linked list in place, so the last node becomes the head and every pointer flips direction.",
+  concept: "Walk the list once with three references: prev (starts null), curr (starts at head), and a temporary next. At each node, save curr.next before overwriting it — otherwise the rest of the list is lost — then point curr.next backward at prev instead of forward. Finally slide both prev and curr one step ahead. By the time curr falls off the end (becomes null), prev is sitting on the last original node, which is now the new head.",
+  keywords: ["reverse linked list","prev curr next","in-place pointer reversal","single pass O(n)","new head"],
+  questions: ["Do I need to flip the direction of every pointer in a linked list, not just read it in reverse order?","Can I do this in O(1) extra space by re-linking nodes as I walk, instead of copying into an array?","Am I careful to save the forward link before I overwrite it, so I don't strand the rest of the list?"],
+  eli10: "Imagine a line of kids holding hands, each one pointing to the friend in front of them. To reverse the line, you walk down it one kid at a time, and for each kid you first remember who's in front of them, then have them grab the hand of the kid who used to be behind them instead. Once you've done this for everyone, the line points the opposite way, and the last kid you touched is now the front of the line.",
+  pitfalls: ["Overwriting curr.next before saving it into a temporary 'next' variable — this instantly disconnects the rest of the list, making it unreachable.","Returning curr instead of prev at the end — by the time the loop ends, curr is null; prev is the actual new head.","Forgetting to advance BOTH prev and curr each iteration (in the right order: prev = curr, then curr = next) — advancing them out of order or skipping one leaves the list only half-reversed."],
+  complexityTime:"O(n)", complexitySpace:"O(1)", complexityScale:2,
+  complexityNote:"A single left-to-right pass over the list; each node's link is rewritten exactly once, with no extra data structure needed.",
+  memoryStack:["prev (ListNode ref)","curr (ListNode ref)","next (ListNode ref)"],
+  memoryHeap:"The existing linked list nodes — reversed in place; no new nodes or arrays are allocated.",
+  comparison:[
+    {name:"Partial (K-Group) Reversal", diff:"K-Group reversal applies this exact same prev/curr/next mechanic, but only to segments of size k at a time, then carefully reconnects each reversed segment to its neighbors."},
+    {name:"Fast–Slow / Finding Middle", diff:"Fast-slow pointers move at different speeds to locate a position (middle, cycle) without altering any links; full reversal moves prev/curr together at the same speed and actively rewrites every link."}
+  ],
+  tips: ["Always ask 'what would I lose if I overwrote this pointer right now?' — that's exactly why 'next' must be saved first, every time.","Trace through a tiny 2-node list by hand (A -> B -> null) before trusting the code on a longer list — the whole mechanic is visible in just two iterations.","The three-pointer shuffle here (prev, curr, next) is the base building block for K-Group reversal, reversing sub-lists, and even palindrome-checking a linked list — it's worth memorizing cold."],
+  flash: [
+    {q:"Why must 'next' be saved before curr.next is reassigned?", a:"Because overwriting curr.next first would permanently disconnect the rest of the list — there'd be no way to reach it anymore."},
+    {q:"What does the function return, and why not curr?", a:"It returns prev — by loop's end curr is null, while prev holds the last original node, which is now the new head."},
+    {q:"Time / space complexity?", a:"O(n) time — one pass over the list; O(1) space — nodes are re-linked in place with no extra structure."}
+  ]
+},
+
+  "Linked List||Reversal||Partial (K-Group)": {
+  build: buildPartialKGroupReversal,
+  problem: "Reverse the nodes of a singly linked list in groups of k. If the number of nodes remaining is less than k at the end, leave that final group exactly as it is.",
+  concept: "Use a dummy node so groupPrev always has a real predecessor to relink. For each group: first scan k steps ahead to find kth — if that scan runs off the end (kth becomes null), stop, since an incomplete group is never reversed. Otherwise, save groupNext (the node right after the group), reverse the k nodes in between using the same prev/curr/next mechanic as a full reversal, then reconnect: groupPrev.next = kth (the new head of this group), and groupPrev advances to the old head (now the group's tail) to prepare for the next group.",
+  keywords: ["reverse in groups of k","k-group reversal","dummy node","groupPrev groupNext","partial reversal","leftover nodes unchanged"],
+  questions: ["Do I need to reverse a linked list in fixed-size chunks rather than all at once?","Does the very last chunk need special handling if it doesn't have a full k nodes?","Can I reuse the exact same prev/curr/next reversal mechanic as a full reversal, just bounded to a smaller window each time?"],
+  eli10: "Imagine a long line of kids, and you want to flip the order of every 3 kids at a time — kid 1,2,3 turn around to face backward as a trio, then kids 4,5,6 do the same, and so on. But if there are only 2 kids left at the very end, they're too few to form a group of 3, so you leave them facing forward, untouched.",
+  pitfalls: ["Reversing a trailing group that doesn't have a full k nodes — always scan ahead first (the kth check) before reversing anything.","Forgetting the dummy node — without it, reversing the very first group has no 'groupPrev' to safely update, making the head-swap a special case instead of the general one.","Losing track of groupNext before reversing — just like in Full Reverse, the link to the rest of the list must be saved before the group's internal pointers are rewritten, or the remainder of the list becomes unreachable."],
+  complexityTime:"O(n)", complexitySpace:"O(1) iterative (O(n/k) if done recursively)", complexityScale:2,
+  complexityNote:"Every node is visited a constant number of times: once during the k-ahead scan, once during its group's reversal — so total work stays linear in the list's length, regardless of k.",
+  memoryStack:["groupPrev (ListNode ref)","kth (ListNode ref)","groupNext (ListNode ref)","prev, curr, tmp (ListNode ref)"],
+  memoryHeap:"The existing linked list nodes — reversed in place, group by group; no new nodes are allocated (a single dummy node is the only addition).",
+  comparison:[
+    {name:"Full Reverse", diff:"Full Reverse applies the prev/curr/next mechanic once, across the entire list; K-Group applies that exact same mechanic repeatedly, but bounded to a k-sized window each time, with a scan-ahead check before every group to detect an incomplete trailing group."},
+    {name:"Fast–Slow / Finding Middle", diff:"Fast-slow pointers locate a position without altering any links; K-Group's initial k-ahead scan looks similar (walking k steps forward) but its purpose is to validate group size, and it's immediately followed by actively rewriting every link in that group."}
+  ],
+  tips: ["Always perform the k-ahead scan BEFORE reversing anything — reversing first and discovering there weren't enough nodes leaves the list in a broken, half-reversed state.","Reuse the dummy-node trick from Full Reverse: it removes the need for special-casing whether the group being reversed is the very first one.","Trace through with a tiny example (n=5, k=3) by hand — you'll see exactly one full group get reversed and a 2-node tail left alone, which is the core behavior this pattern is testing."],
+  flash: [
+    {q:"What happens to a trailing group with fewer than k nodes?", a:"It is left completely untouched — only full groups of exactly k nodes get reversed."},
+    {q:"Why is a dummy node used here?", a:"So groupPrev always has a valid predecessor to update, including for the very first group, avoiding a special case for the head."},
+    {q:"Time / space complexity?", a:"O(n) time — every node is touched a constant number of times; O(1) extra space for the iterative version (just a few pointer variables)."}
+  ]
+},
+
+  "Linked List||Merge Lists||Merge Two / K Sorted Lists": {
+  build: buildMergeTwoSortedLists,
+  problem: "Merge two sorted linked lists into a single sorted linked list, reusing the existing nodes rather than creating new ones. (The same core comparison step, applied pairwise or via a min-heap, generalizes to merging k sorted lists.)",
+  concept: "Use a dummy node so tail always has a valid node to attach to, even for the very first comparison. Walk p1 and p2 together: at each step, whichever node has the smaller (or equal) value gets linked via tail.next and its own pointer advances; tail then catches up to the newly attached node. Once one list runs out, the other is already sorted, so its entire remaining chain can be attached in a single step with no further comparisons needed. For k lists, this exact 2-way comparison is reused either by merging lists pairwise (like merge sort's merge step) or by replacing the single comparison with a min-heap holding the current front node of all k lists, popping the smallest each time.",
+  keywords: ["merge two sorted lists","k-way merge","dummy node","min-heap merge","relink not recreate","merge sort's merge step"],
+  questions: ["Are the inputs already individually sorted, so a single left-to-right pass can merge them without any sorting?","Do I need to reuse existing nodes (relinking pointers) rather than copying values into a new list?","Would this need to scale to k lists, where a min-heap replaces the single if/else comparison?"],
+  eli10: "Imagine two lines of kids already sorted shortest-to-tallest, and you want to merge them into one sorted line. You always look at the front kid of each line and pull whichever one is shorter into your new line, letting that line's next kid step up. The moment one line runs out of kids, the other line is still perfectly sorted, so you just attach the rest of it all at once — no more comparing needed.",
+  pitfalls: ["Comparing p1.val > p2.val strictly instead of using <= for one side — without a consistent tie-break, equal values can be handled inconsistently (though the merge still stays correct either way, being explicit avoids confusion).","Forgetting the dummy node and trying to special-case 'which list's head comes first' — the dummy removes that special case entirely, since tail always has something valid to point from.","Creating brand-new nodes with the values instead of relinking the existing ones — that wastes memory and is unnecessary, since both input lists' nodes can simply be re-pointed."],
+  complexityTime:"O(n1 + n2) for two lists; O(N log k) for k lists via a min-heap", complexitySpace:"O(1) extra for two lists (excluding the output); O(k) for the heap in the k-list version", complexityScale:2,
+  complexityNote:"Merging two lists is a single linear pass — every node from both lists is visited and relinked exactly once. Merging k lists with a min-heap costs O(log k) per node extracted/inserted, across N total nodes, giving O(N log k); merging k lists pairwise instead costs O(N log k) as well, via log k rounds of full N-node merges.",
+  memoryStack:["dummy (ListNode)","tail (ListNode ref)","p1, p2 (ListNode ref)"],
+  memoryHeap:"The existing nodes of both input lists — relinked in place; no new list nodes are allocated (only the one dummy node, which is discarded via dummy.next).",
+  comparison:[
+    {name:"Full Reverse", diff:"Full Reverse rewrites every node's single next pointer to flip direction; merging rewires next pointers too, but chooses which of two candidate nodes to attach next based on a value comparison, rather than simply reversing an existing order."},
+    {name:"Partial (K-Group)", diff:"K-Group reversal also uses a dummy node and a 'prev/tail' pointer trailing the work, but it reverses fixed-size chunks of ONE list; merging combines nodes from TWO (or more) separate lists based on value order, never reversing anything."}
+  ],
+  tips: ["The dummy node trick isn't unique to merging — it shows up anywhere a 'previous node' is needed before there's a real previous node yet, including K-Group reversal.","Once you're comfortable with the two-list version, the jump to k lists is just swapping the if/else comparison for a min-heap keyed on each list's current front value.","Trace through by hand what happens the instant one list becomes null inside the while loop — that's exactly why the leftover-list attachment step (tail.next = whichever list remains) is safe and needs no further looping through comparisons."],
+  flash: [
+    {q:"Why is a dummy node used here?", a:"So tail always has a valid node to link from, removing the need to special-case which list's head is attached first."},
+    {q:"What happens once one list is fully consumed?", a:"The other list's remaining nodes are already sorted, so the whole remainder is attached in one step — no more comparisons are needed."},
+    {q:"Time complexity for two lists vs. k lists?", a:"O(n1 + n2) for two lists with a single pass; O(N log k) for k lists using a min-heap over the k lists' current front nodes."}
+  ]
+},
+
+  /* Merge this key/value into the PATTERNS_DB object (comma-separated with existing entries) */
+"Trees||Traversal||DFS (Pre / In / Post Order)": {
+  build: buildDFSTraversal,
+  problem: "Visit every node of a binary tree exactly once, in one of the three classic depth-first orders: preorder (Node\u2192Left\u2192Right), inorder (Left\u2192Node\u2192Right), or postorder (Left\u2192Right\u2192Node).",
+  concept: "All three orders share the same recursive skeleton \u2014 base case: an empty node does nothing; recursive case: recurse left, recurse right, and visit the node itself. The ONLY thing that changes between preorder, inorder, and postorder is WHERE the 'visit node' line sits relative to the two recursive calls. Moving that single line is the entire difference between the three traversals \u2014 the recursion structure never changes.",
+  keywords: ["depth first search","tree traversal","preorder","inorder","postorder","recursion","call stack","node left right"],
+  questions: ["Do I need to visit every node of a tree, going deep into one branch before backtracking?","Does the order I record each node's value in actually matter for the problem (e.g. sorted output, safe deletion order)?","Can the answer for a node be expressed in terms of its left subtree's traversal and its right subtree's traversal?"],
+  eli10: "Imagine exploring a family tree by always walking to the very end of one branch before backtracking. Preorder is like writing down a person's name the moment you meet them, before visiting their kids. Inorder is like writing their name only after you've finished visiting everyone on their left side, but before their right side. Postorder is like writing their name only after you've visited every single one of their descendants \u2014 you save the parent's name for last.",
+  pitfalls: ["Forgetting the base case (node == null \u2192 return) \u2014 without it the recursion never terminates and crashes with a stack overflow.","Mixing up inorder and postorder \u2014 both visit the left subtree first, so the only tell is whether the node is written down before or after the right subtree.","Assuming inorder always produces sorted values \u2014 that's only true specifically for a Binary Search Tree, not for trees in general."],
+  complexityTime:"O(n)", complexitySpace:"O(h)", complexityScale:2,
+  complexityNote:"Every node is visited exactly once, so time is always O(n). Space is O(h) for the recursion call stack, where h is the tree's height \u2014 O(log n) for a balanced tree, but O(n) in the worst case of a completely skewed tree.",
+  memoryStack:["node (TreeNode reference)","one call frame per level of recursion currently in progress"],
+  memoryHeap:"The tree's TreeNode objects (val, left, right pointers), plus the result List<Integer> being built up as traversal proceeds.",
+  comparison:[
+    {name:"BFS (Level Order)", diff:"BFS explores level by level using a queue, visiting all of a node's siblings before going deeper; DFS plunges all the way down one branch first using the call stack (or an explicit stack), only backtracking once it hits a dead end."},
+    {name:"Backtracking (Decision Tree)", diff:"Backtracking also recurses depth-first, but explicitly chooses, explores, and un-chooses a decision at each step to build combinations/permutations; plain tree DFS just visits fixed, already-existing nodes with no choices to undo."}
+  ],
+  tips: ["Write the base case first, always \u2014 'if node is null, return' \u2014 before thinking about anything else.","To pick the right order fast: say the sentence 'Left, ___, Right' and slot in where 'Node' goes \u2014 that's pre/in/postorder in one breath.","Postorder is the pattern to reach for whenever children must be fully handled before the parent \u2014 deleting a tree, computing subtree sizes, or evaluating an expression tree bottom-up."],
+  flash: [
+    {q:"What's the ONE line that differs between preorder, inorder, and postorder?", a:"Where 'visit the node' sits relative to the two recursive calls \u2014 before both, between them, or after both."},
+    {q:"When does inorder traversal produce sorted output?", a:"Only when the tree is a Binary Search Tree (BST) \u2014 not for trees in general."},
+    {q:"Time / space complexity?", a:"O(n) time (every node visited once); O(h) space for the recursion stack, where h is the tree's height."}
+  ]
+},
+
+  /* Merge this key/value into the PATTERNS_DB object (comma-separated with existing entries) */
+"Trees||Traversal||BFS (Level Order / Zigzag / Right-Side View)": {
+  build: buildBFSTraversal,
+  problem: "Visit a binary tree row by row, top to bottom, left to right \u2014 and use that same row-by-row structure to solve variants like zigzag order (alternating direction per row) and right-side view (only the last node visible in each row).",
+  concept: "Unlike DFS which uses the call stack to plunge deep down one branch first, BFS uses an explicit QUEUE (FIFO) to process the tree strictly level by level. Snapshotting the queue's size at the start of each while-loop iteration is the key trick \u2014 that size is exactly how many nodes belong to the current level, letting you cleanly separate 'this level' from 'the next level' even though both live in the same queue at once. Zigzag just reverses alternate levels after collecting them; right-side view just keeps the last node processed in each level instead of all of them.",
+  keywords: ["breadth first search","level order traversal","queue","FIFO","zigzag traversal","right side view","level by level"],
+  questions: ["Do I need to process a tree row by row, rather than plunging deep down one branch first?","Does the answer depend on which nodes are at the same depth/level together?","Can I snapshot the queue's current size to know exactly where one level ends and the next begins?"],
+  eli10: "Imagine inspecting a family tree one generation at a time \u2014 first just the grandparent, then both parents together, then all the grandchildren together \u2014 instead of following one family line all the way down before checking the others. You keep a waiting line (not a stack) of who to visit next: whoever's been waiting longest gets checked first, and as you check each person you add their kids to the BACK of the line, so the whole current generation finishes before the next one starts.",
+  pitfalls: ["Forgetting to snapshot the queue's size BEFORE the inner for-loop \u2014 without it, children offered mid-level get processed as if they belonged to the current level, and levels blur together.","Using a stack (LIFO) instead of a queue (FIFO) \u2014 that silently turns BFS back into a DFS-like order, defeating the whole point of level-by-level processing.","In zigzag, reversing the queue itself instead of just the collected level list \u2014 the queue's internal order must stay a normal FIFO or children get offered incorrectly for the next level."],
+  complexityTime:"O(n)", complexitySpace:"O(w)", complexityScale:2,
+  complexityNote:"Every node is visited exactly once, so time is always O(n). Space is O(w), where w is the tree's maximum width (the most nodes ever waiting in the queue at once) \u2014 for a balanced tree this can be up to O(n/2) at the last level, so BFS space usage is often larger in practice than DFS's O(h).",
+  memoryStack:["node (TreeNode reference, polled from the queue)","i, size (int, level-boundary bookkeeping)"],
+  memoryHeap:"A Queue<TreeNode> holding nodes waiting to be processed, plus the result List<List<Integer>> (or List<Integer> for right-side view) being built up level by level.",
+  comparison:[
+    {name:"DFS (Pre / In / Post Order)", diff:"DFS plunges all the way down one branch first using the call stack, only backtracking at a dead end; BFS instead explores every node at the current depth before moving to the next, using an explicit queue instead of recursion."},
+    {name:"Multi-source BFS (Graph)", diff:"Multi-source BFS starts with several nodes already in the queue at once (multiple origins expanding simultaneously); tree-level BFS always starts from a single root, with 'sources' only multiplying naturally as children get offered level by level."}
+  ],
+  tips: ["Whenever a problem needs 'level by level', 'row by row', 'shortest path in an unweighted tree/grid', or 'nodes at the same depth' \u2014 reach for a queue-based BFS, not recursion.","Say the size-snapshot rule out loud before coding: 'int size = queue.size(), then loop exactly that many times' \u2014 that one line is what correctly separates levels.","Zigzag and right-side view are NOT separate algorithms \u2014 they're plain level-order BFS with one extra tweak applied per level (reverse the list, or keep only the last element). Recognizing that saves you from re-deriving BFS from scratch each time."],
+  flash: [
+    {q:"What data structure does BFS use instead of the call stack DFS relies on?", a:"An explicit Queue (FIFO) \u2014 whoever entered first gets processed first."},
+    {q:"What's the one trick that correctly separates tree levels during BFS?", a:"Snapshotting queue.size() at the start of each level, BEFORE offering any children, and looping exactly that many times."},
+    {q:"How does right-side view differ from plain level order?", a:"It's the exact same BFS, but only the LAST node processed in each level (i == size - 1) gets added to the result."}
+  ]
+},
+
+  /* Merge this key/value into the PATTERNS_DB object (comma-separated with existing entries) */
+"Trees||Recursion Patterns||Top-Down Approach": {
+  build: buildTopDownApproach,
+  problem: "Find the maximum depth of a binary tree — the number of nodes along the longest path from the root down to the farthest leaf.",
+  concept: "Top-down recursion pushes information DOWNWARD through parameters as calls descend, and records the answer into a variable that lives OUTSIDE the recursion (often a field or a variable captured by a helper). Each call receives everything it needs to know from its parent — here, the current depth — decides whether to update the shared answer right where it stands (at a leaf), and then hands a slightly updated version of that same information further down to its children. Crucially, the function returns nothing meaningful (void): no value ever needs to travel back UP the call stack, because all the useful work already happened on the way down.",
+  keywords: ["top-down recursion","pass state as parameters","preorder-style computation","void recursive helper","depth passed down","maximum depth of tree"],
+  questions: ["Can I answer this by carrying a running piece of information DOWN through parameters, rather than waiting for children to report back UP?","Is there a natural moment during the descent (like reaching a leaf or a base case) where the carried information should update a shared/global answer?","Does my recursive helper actually need a return value, or could it be void because the answer is being accumulated as a side effect?"],
+  eli10: "Imagine walking down a family tree from the grandparent, and at every step you whisper down to your kids: 'you are generation number X'. Each person only needs to know their own generation number, which they got from their parent — they don't need to wait and ask their kids anything. The moment you reach someone with no kids of their own, you check their generation number against the biggest one you've seen so far and update a single shared scoreboard. Nothing ever needs to be reported back up the family tree; the scoreboard update happens right where you're standing.",
+  pitfalls: ["Trying to also return a value from a top-down helper 'just in case' — if the answer is truly computed on the way down, the return type can and should be void; mixing both styles muddies the logic.","Forgetting that the shared answer variable must live outside the recursive calls (as a field, a wrapped mutable object, or similar) — a plain local variable reset on every call won't accumulate anything.","Using top-down when the real question needs information from BOTH children combined at the parent (like diameter or subtree sum) — that's a signal for bottom-up instead, where children's return values are what get combined."],
+  complexityTime:"O(n)", complexitySpace:"O(h)", complexityScale:2,
+  complexityNote:"Every node is visited exactly once, so time is always O(n). Space is O(h) for the recursion call stack, where h is the tree's height — same footprint as any single DFS pass, since top-down doesn't add extra bookkeeping beyond the one shared answer variable.",
+  memoryStack:["node (TreeNode reference)","depth (int, handed down from the parent's call)"],
+  memoryHeap:"A single shared `answer` variable (or field) that every call frame can see and update — no per-node return values are stored or combined.",
+  comparison:[
+    {name:"Bottom-Up Approach", diff:"Bottom-up instead has each call RETURN a value computed from its children's returned values, combining results on the way back UP the call stack; top-down never returns anything meaningful and computes everything on the way DOWN."},
+    {name:"DFS (Pre / In / Post Order)", diff:"Top-down is essentially a preorder-flavored traversal in spirit — it acts on information (like depth) the moment it arrives at a node, before recursing into children — but it's framed around what gets passed as parameters rather than which line a 'visit' statement sits on."}
+  ],
+  tips: ["Ask yourself: 'does each node need to know something ONLY its ancestors could tell it (like depth, a running sum, or a path so far)?' — if yes, that's top-down; pass it as a parameter.","Sketch the answer variable's home BEFORE writing the recursion — decide whether it's a class field, a single-element array, or a wrapper object, since Java can't mutate a captured local int directly.","If you find yourself wanting to combine two child results at the parent, stop — that's bottom-up's job, not top-down's."],
+  flash: [
+    {q:"In top-down recursion, which direction does information mainly travel — down through parameters, or up through return values?", a:"Down through parameters — each call receives what it needs from its parent and passes an updated version further down."},
+    {q:"Does a typical top-down helper function need a return value?", a:"No — it's commonly void, since the answer is accumulated as a side effect in a shared variable rather than assembled from returned values."},
+    {q:"Time / space complexity for a single top-down pass?", a:"O(n) time (every node visited once), O(h) space for the recursion stack, where h is the tree's height."}
+  ]
+},
+
+  /* Merge this key/value into the PATTERNS_DB object (comma-separated with existing entries) */
+"Trees||Recursion Patterns||Bottom-Up Approach": {
+  build: buildBottomUpApproach,
+  problem: "Find the height of a binary tree — the number of edges (or levels, depending on convention) on the longest path from the root down to a leaf — by combining information from both children.",
+  concept: "Bottom-up recursion returns a value from every call, and lets the PARENT combine its children's returned values once both have come back. No state is passed down through parameters the way top-down does — each call blindly recurses into its children first, waits for both answers, and only then computes its own answer using those results. The combining step (here, 1 + max(leftHeight, rightHeight)) is where all the real work lives, and it always happens on the way back UP the call stack, never on the way down.",
+  keywords: ["bottom-up recursion","return value combines children","postorder-style computation","height of tree","diameter of tree","combine left and right results"],
+  questions: ["Does answering for a node require knowing something about BOTH of its children's subtrees, combined together?","Can each call be written to simply trust that recursing into its children will hand back a correct, complete answer for each subtree?","Is the real computation happening in the line(s) AFTER both recursive calls return, rather than before or during them?"],
+  eli10: "Imagine asking every person in a family tree 'how many generations are below you, at the deepest point?' Nobody can answer that just by looking at themselves — they first have to ask each of their own children the same question, wait for both answers, and only then can they say 'I'm one generation above whichever of my kids has the deepest line below them.' The answer bubbles all the way up from the very bottom of the tree, generation by generation, until the very top person finally learns the whole tree's answer.",
+  pitfalls: ["Trying to also carry information DOWN through parameters 'just in case' — if the answer genuinely only depends on combining children's results, extra downward parameters usually mean the two styles are being mixed unnecessarily.","Forgetting the base case's return value matters just as much as any other — an empty subtree returning the wrong number (e.g. -1 instead of 0) silently corrupts every combination built on top of it.","Using bottom-up when the real answer needs information from ABOVE a node too, like distance from the root or a value only knowable from an ancestor — that's a signal top-down (or a hybrid) is actually needed, since bottom-up alone never sees anything above the current subtree."],
+  complexityTime:"O(n)", complexitySpace:"O(h)", complexityScale:2,
+  complexityNote:"Every node is visited exactly once, so time is always O(n). Space is O(h) for the recursion call stack, where h is the tree's height — same footprint as top-down, since bottom-up doesn't need any shared variable, only the return values already living on each call frame.",
+  memoryStack:["node (TreeNode reference)","leftHeight (int, the value returned by the left recursive call)","rightHeight (int, the value returned by the right recursive call)"],
+  memoryHeap:"No shared/global variable is needed at all — every intermediate answer lives purely as a return value on some call frame's stack space, combined and discarded as the recursion unwinds.",
+  comparison:[
+    {name:"Top-Down Approach", diff:"Top-down passes information DOWN through parameters and updates a shared answer variable as a side effect, usually returning nothing (void); bottom-up returns a value from every call and combines children's results at the parent, with no shared state needed at all."},
+    {name:"DFS (Pre / In / Post Order)", diff:"Bottom-up is essentially a postorder-flavored computation in spirit — both children are fully processed before the current node's own answer is finalized — but it's framed around what gets returned and combined rather than which line a 'visit' statement sits on."}
+  ],
+  tips: ["Ask yourself: 'can I only answer for this node once I know something about BOTH children's subtrees?' — if yes, that's bottom-up; let each call return a value.","Write the combining line FIRST in your head — for height it's '1 + max(left, right)' — then work backward to figure out what each recursive call needs to return to make that line possible.","If a problem needs two pieces of information at once (like 'height' AND 'is this subtree balanced'), consider returning a small object or array from each call — bottom-up scales naturally to combining multiple pieces of children's data at once."],
+  flash: [
+    {q:"In bottom-up recursion, which direction does the real computation happen — before the recursive calls, or after they return?", a:"After — the combining step uses both children's already-returned values, so it always happens on the way back up."},
+    {q:"Does a typical bottom-up helper function need a shared/global variable?", a:"No — every answer is built purely from return values passed between call frames; nothing needs to live outside the recursion."},
+    {q:"Time / space complexity for a single bottom-up pass?", a:"O(n) time (every node visited once), O(h) space for the recursion stack, where h is the tree's height."}
+  ]
+},
+
+  "Trees||Path Based||Max Path Sum": {
+  build: buildMaxPathSum,
+  problem: "Given the root of a binary tree, find the maximum possible sum of any path — a path can start and end at any node, and doesn't need to pass through the root.",
+  concept: "Do a post-order DFS. At every node, ask two different questions at once: (1) what's the best path sum that BENDS through this node, using both its left and right children? That's a candidate for the global answer, since a 'bent' path can never be extended further by a parent. (2) What's the best sum a parent could add if it continues UPWARD through this node? That can only use ONE child (a path can't fork), so it's node.val + max(leftGain, rightGain). Negative subtree contributions are clipped to 0, since including a negative branch only ever makes a path worse.",
+  keywords: ["binary tree","max path sum","post-order dfs","recursion","global max + return value","gain function"],
+  questions: ["Can a valid path start and end at any two nodes, not just leaves or the root?","Do I need to track a global best answer separately from what each recursive call returns to its parent?","Would a negative subtree ever help a path, or should it just be ignored (clipped to 0)?"],
+  eli10: "Imagine standing at every branch of a tree and asking two things: 'if I use both my arms — the twig going left and the twig going right — what's the best score I could show off right here?' and separately, 'if my parent branch wants to borrow my score to extend further up, which single arm should I offer them?' You can brag about using both arms only at your own branch, but you can only lend one arm upward, since a path can't fork.",
+  pitfalls: ["Returning the 'bend through both children' value up to the parent instead of the single-child value — a path can't branch in two directions and still be a valid straight path.","Forgetting to clip negative subtree gains to 0 — a negative contribution should be treated as 'don't take this branch at all', not subtracted in.","Updating the global maxSum only at the root, or only using the returned value, instead of checking priceNewPath (the through-node value) at every single node during the recursion."],
+  complexityTime:"O(n)", complexitySpace:"O(h)", complexityScale:2,
+  complexityNote:"Every node is visited exactly once in the post-order traversal; extra space is O(h) for the recursion call stack, where h is the tree's height (O(log n) balanced, O(n) worst-case skewed).",
+  memoryStack:["node (reference)","leftGain (int)","rightGain (int)","priceNewPath (int)"],
+  memoryHeap:"The binary tree's nodes themselves; maxSum is a single running variable shared across all recursive calls.",
+  comparison:[
+    {name:"Diameter / Height / Depth", diff:"Diameter also combines a node's left and right subtree results in a post-order DFS, but sums edge counts (or node counts) instead of arbitrary (possibly negative) values, so it never needs the 0-clipping step."},
+    {name:"DFS (Pre / In / Post Order)", diff:"Plain traversal just visits every node in some order; this pattern layers a 'combine children, but return only one branch upward' recurrence on top of a post-order DFS to solve an optimization problem."}
+  ],
+  tips: ["Whenever a tree problem needs 'the best path between any two nodes', think: post-order DFS with a global variable updated at every node, plus a single-branch value returned upward.","Write the two formulas side by side before coding: the global-update formula (node.val + leftGain + rightGain) uses BOTH children; the return-to-parent formula (node.val + max(leftGain, rightGain)) uses only ONE.","Always clip negative gains to 0 with Math.max(gain, 0) — that one line is what correctly handles trees with negative node values."],
+  flash: [
+    {q:"Why can a node use both children for the global max but only one for its return value?", a:"A path reported upward to a parent must stay a single unbroken line — using both children would make it fork, which isn't a valid path."},
+    {q:"Why clip negative subtree gains to 0?", a:"A negative contribution would only lower the path sum, so it's better to simply not include that branch at all."},
+    {q:"Time / space complexity?", a:"O(n) time — every node visited once; O(h) space for the recursion stack, where h is the tree's height."}
+  ]
+},
+
+  "Trees||Path Based||Diameter / Height / Depth": {
+  build: buildDiameterHeightDepth,
+  problem: "Given the root of a binary tree, find its diameter — the length (in edges) of the longest path between any two nodes in the tree. The path does not need to pass through the root.",
+  concept: "Do a single post-order DFS that computes height() at every node while quietly checking a diameter candidate along the way. height(node) is defined as 1 + max(height(left), height(right)), with a null node's height defined as -1 so a leaf correctly comes out to 0. At every node, before returning upward, check whether a path bending through this node — down its left subtree AND down its right subtree — beats the best diameter found so far: leftHeight + rightHeight + 2 (the +2 accounts for the two edges connecting this node to each subtree's deepest point). Only ONE combined DFS pass is needed; there's no separate 'compute diameter' traversal.",
+  keywords: ["binary tree diameter","tree height","tree depth","post-order dfs","longest path between two nodes","single pass optimization"],
+  questions: ["Do I need the longest path between any two nodes in a tree, not necessarily through the root?","Can I compute a node's height while ALSO updating a global answer at the same time, in one traversal, instead of two separate passes?","Does a 'diameter' or 'longest path' problem really reduce to combining the two subtree heights at every node?"],
+  eli10: "Imagine measuring how tall each branch of a tree is by climbing to its tip and counting steps back down. While you're doing that climbing anyway, at every fork you also check: 'if I walked all the way down my left branch AND all the way down my right branch, how long would that whole walk be?' You keep track of the longest such walk you've seen at any fork in the whole tree — that's the diameter. You get the height for free as you climb, and the diameter almost for free by checking one extra thing at every stop.",
+  pitfalls: ["Computing height and diameter in two completely separate traversals — a single post-order DFS can do both at once, cutting the work in half.","Forgetting that a null node's height must be -1 (not 0) for the +2 formula to correctly give a leaf a diameter contribution of 0 — using 0 for null silently double-counts a leaf's own edge.","Returning the leftHeight + rightHeight combined value UP to the parent instead of 1 + max(leftHeight, rightHeight) — a path continuing upward can only pass through one child, exactly like Max Path Sum's 'through vs upward' distinction."],
+  complexityTime:"O(n)", complexitySpace:"O(h)", complexityScale:2,
+  complexityNote:"Every node is visited exactly once in the single post-order DFS pass; extra space is O(h) for the recursion call stack, where h is the tree's height (O(log n) balanced, O(n) worst-case skewed).",
+  memoryStack:["node (reference)","leftHeight (int)","rightHeight (int)"],
+  memoryHeap:"The binary tree's nodes themselves; diameter is a single running variable shared across all recursive calls.",
+  comparison:[
+    {name:"Max Path Sum", diff:"Both patterns combine a left and right subtree result in a post-order DFS and return only one branch upward; Max Path Sum sums arbitrary (possibly negative) node values and clips negative gains to 0, while diameter sums fixed +1-per-edge heights and never needs clipping."},
+    {name:"DFS (Pre / In / Post Order)", diff:"Plain traversal just visits every node in some order with no combination step; this pattern layers a 'combine children's heights, check a global candidate, return one branch upward' recurrence on top of a post-order DFS."}
+  ],
+  tips: ["Whenever a tree problem asks for 'the longest path between any two nodes', think: this is really just height() with one extra line checking leftHeight + rightHeight (+2 for edges) against a global maximum.","Define null height as -1, not 0 — say it out loud: 'a leaf's height is 1 + max(-1, -1) = 0', and the whole edge-counting formula falls into place correctly.","Recognize the shared skeleton with Max Path Sum: update a global answer using BOTH children, but return upward using only ONE — that single idea unlocks both patterns."],
+  flash: [
+    {q:"Why is a null node's height defined as -1 instead of 0?", a:"So that a leaf node (both children null) correctly computes height = 1 + max(-1, -1) = 0, keeping the edge-count formula consistent."},
+    {q:"What is the diameter candidate formula at each node?", a:"leftHeight + rightHeight + 2 — the two edges connecting the node down into each subtree, plus however deep each subtree goes."},
+    {q:"Time / space complexity?", a:"O(n) time — every node visited once in a single combined pass; O(h) space for the recursion stack, where h is the tree's height."}
+  ]
+},
+
+  "Trees||BST||Binary Search Tree Operations": {
+  build: buildBSTOperations,
+  problem: "Given a Binary Search Tree, search for a target value and insert a new value, both while preserving the BST ordering property (everything in a node's left subtree is smaller, everything in its right subtree is bigger).",
+  concept: "At every node, the BST ordering property turns a comparison into a guaranteed direction: if the target/value is smaller than the current node, the ENTIRE right subtree can be ignored, since everything there is provably bigger; if it's bigger, the entire left subtree can be ignored. Both search and insert are the same walk — compare, discard one whole side, recurse into the other — except insert additionally creates a brand-new node the moment it reaches an empty (null) spot, and reattaches it by reassigning the parent's left or right pointer to whatever the recursive call returns.",
+  keywords: ["binary search tree","BST insert","BST search","left smaller right bigger","ordering property","O(h) tree operations"],
+  questions: ["Is this tree a BST — does every node guarantee left-subtree-smaller, right-subtree-bigger?","Can comparing against just the current node eliminate an entire subtree, rather than needing to check every node?","For insert specifically: does the new node always end up placed as a leaf, at the exact spot where the search 'fell off' the tree?"],
+  eli10: "Imagine a tree of mailboxes where every mailbox promises: 'everything down my left arm has a smaller number than me, everything down my right arm has a bigger number.' To find a number, you only ever need to check the mailbox in front of you and then walk down exactly one arm — you never have to check the other arm at all, because the promise already tells you it can't be there. Inserting a new number works the same way: walk down using the same promise until you reach empty air, and that's exactly where the new mailbox gets hung.",
+  pitfalls: ["Forgetting to reassign node.left / node.right to the recursive call's return value during insert — without `node.left = insert(node.left, val)`, the newly created node never actually gets attached to the tree.","Treating this as a plain (non-BST) binary tree and checking both children at every node — that throws away the entire point of the ordering property and turns an O(h) walk into an O(n) scan.","Assuming the tree stays balanced automatically — repeated inserts of already-sorted data (e.g. 1,2,3,4,5…) build a completely skewed, linked-list-shaped tree, degrading every operation to O(n)."],
+  complexityTime:"O(h)", complexitySpace:"O(h)", complexityScale:1,
+  complexityNote:"Both search and insert only ever walk a single root-to-leaf path, so time is O(h) where h is the tree's height — O(log n) for a balanced BST, but O(n) in the worst case for a skewed one. Space is O(h) too, for the recursion call stack.",
+  memoryStack:["node (reference)","target / val (int)"],
+  memoryHeap:"The BST's nodes themselves; insert allocates exactly one new node object at the insertion point.",
+  comparison:[
+    {name:"Binary Search On Index (sorted array)", diff:"Both eliminate half the remaining search space per comparison, but a BST's 'half' is a subtree reached by a pointer, while array binary search's half is a numeric index range — same core idea, different underlying structure."},
+    {name:"DFS (Pre / In / Post Order)", diff:"Plain DFS traversal visits every node with no way to skip a whole subtree; BST search/insert visits at most one node per level, since the ordering property proves the other subtree is irrelevant."}
+  ],
+  tips: ["Whenever a tree problem mentions 'BST' explicitly, immediately ask what the ordering property lets you skip — that's almost always the whole solution.","Say the reassignment out loud before coding insert: 'node.left = insert(node.left, val)' — the recursive return value IS how the new node gets wired into the tree.","If inserts come from already-sorted input, mention that the tree can degrade to a skewed shape — that's the natural segue into self-balancing BSTs like AVL or Red-Black trees."],
+  flash: [
+    {q:"Why can BST search skip an entire subtree at every node?", a:"The ordering property guarantees everything in the 'wrong' subtree is on the wrong side of the current node's value, so it can never contain the target."},
+    {q:"How does a new node actually get attached during insert?", a:"By reassigning node.left or node.right to the return value of the recursive insert call — that's what wires the freshly created node back into the tree."},
+    {q:"Time / space complexity?", a:"O(h) time and O(h) space, where h is the tree's height — O(log n) if balanced, O(n) worst case if skewed."}
+  ]
+},
+
+
+  "Recursion||Backtracking — Exploration||Decision Tree": {
+  build: buildDecisionTree,
+  problem: "Given an array of numbers, generate every possible subset — the classic problem that best exposes the underlying shape of backtracking as a decision tree.",
+  concept: "Model the whole search as a binary tree of choices: at every index, there are exactly two branches — include the current element, or skip it. Recursing into the include branch explores every subset that contains this element; recursing into the exclude branch explores every subset that doesn't. Once the index reaches the end of the array, a single root-to-leaf path has been fully decided, and that path is exactly one valid subset. The tree has depth n (one level per element) and 2^n leaves (one per possible combination of choices), and recursion is simply what walks that tree depth-first.",
+  keywords: ["decision tree","include or exclude","binary choice per element","backtracking skeleton","2^n leaves","choose explore unchoose (conceptual)"],
+  questions: ["Can every step of the problem be framed as a small, fixed set of choices (often just two: take it or leave it)?","Does the total search space form a tree where each root-to-leaf path represents one complete valid answer?","Would drawing the tree by hand for a tiny input (like 2 or 3 elements) make the recursive structure obvious?"],
+  eli10: "Imagine standing at a fork in a hiking trail for every single landmark on a map, and at each fork you can either visit that landmark or walk past it. If you draw every possible sequence of forks you could take, you get a big branching tree, and every path from the very start to the very end of the map is one specific 'trip plan' — visiting some landmarks and skipping others. Backtracking is just walking down one path at a time, and when you reach a dead end (the end of the map), you note down which trip plan you just walked, then backtrack up to try the other fork you didn't take yet.",
+  pitfalls: ["Thinking of the decision tree only as a diagram and never actually tracing how recursion realizes it — the recursive call IS the tree traversal; there's no separate tree data structure being built.","Forgetting to undo a choice (the 'unchoose' step) before trying the sibling branch — without removing the just-added element from the path, the exclude branch would incorrectly still contain it.","Assuming every problem has exactly two branches per node — many decision trees have more (e.g. picking one of several digits, one of several grid directions); 'include/exclude' is just the simplest, most common case."],
+  complexityTime:"O(2^n)", complexitySpace:"O(n)", complexityScale:4,
+  complexityNote:"There are exactly 2^n leaves in the decision tree (one per subset), and building each leaf's path costs O(n) to copy — so total time is O(n · 2^n) including the output copies; the recursion depth, and thus extra call-stack space, is only O(n).",
+  memoryStack:["index (int)","path (List<Integer>, shared/mutated across calls)"],
+  memoryHeap:"A result list collecting a copy of path at every leaf (2^n subsets total for n elements).",
+  comparison:[
+    {name:"Choose–Explore–Unchoose", diff:"Choose–Explore–Unchoose is the concrete three-step ritual (add, recurse, remove) that IMPLEMENTS a decision tree traversal; Decision Tree is the higher-level mental model of what that ritual is walking through."},
+    {name:"Subsets (Power Set)", diff:"Subsets is this exact problem instance — generating the power set — used here specifically because its two-branches-per-node structure makes the underlying decision tree shape the clearest to see."}
+  ],
+  tips: ["Before writing any backtracking code, sketch the decision tree for a tiny example (n=2 or n=3) by hand — the recursive structure almost writes itself once the branches are visible on paper.","Say out loud at each node: 'what are ALL the choices available here?' — for many problems it's a fixed small set (include/exclude, or one of k options), and that set IS the branching factor of the tree.","Recognize this as the shared skeleton behind subsets, permutations, combinations, and word search — they're all decision trees with different branching rules and different leaf conditions."],
+  flash: [
+    {q:"What do the leaves of the decision tree represent in the include/exclude subset problem?", a:"Each leaf is one complete, fully-decided subset — the result of making an include-or-exclude choice at every index."},
+    {q:"How many leaves does the decision tree have for an array of length n?", a:"2^n — one leaf for every possible combination of include/exclude choices across all n elements."},
+    {q:"Time / space complexity?", a:"O(n · 2^n) time (2^n leaves, each path costing O(n) to copy out), O(n) extra space for the recursion depth."}
+  ]
+},
+
+  /* Merge this key into PATTERNS_DB (note: en dash "–" in both the category
+   name "Backtracking — Exploration" and the pattern name "Choose–Explore–Unchoose",
+   copied exactly from the DATA array so the sidebar leaf links to this entry). */
+
+"Recursion||Backtracking — Exploration||Choose–Explore–Unchoose": {
+  build: buildChooseExploreUnchoose,
+  problem: "Generate every possible subset of a set of distinct numbers (the power set), using the general choose-explore-unchoose recursion template that underlies all backtracking.",
+  concept: "At every recursive call, first record the current path as a valid result (every path is a valid subset). Then, for each remaining candidate, do three things in strict order: CHOOSE it (add it to the path), EXPLORE from there (recurse deeper, now with this choice locked in), and UNCHOOSE it (remove it from the path) once that recursive branch returns. The unchoose step is what makes this backtracking rather than plain recursion — it resets shared state (the path) so the next sibling branch starts clean, letting one path variable be reused across the entire exploration instead of allocating a new one per branch.",
+  keywords: ["backtracking","choose explore unchoose","recursion tree","subsets","power set","undo the choice","decision tree","dfs over choices"],
+  questions: ["Am I exploring all possible combinations/arrangements of choices, where each choice leads to a smaller version of the same problem?","Do I need to try a choice, recurse, and then explicitly undo that choice before trying the next one?","Is there a single mutable 'path' or 'state' object that gets built up and torn down as the recursion goes deeper and returns?"],
+  eli10: "Imagine exploring a maze with a piece of chalk. At every junction you pick a path, draw a chalk line as you walk it (CHOOSE), keep exploring deeper down that path (EXPLORE), and if it's a dead end, you walk back and erase your chalk line before trying the next path (UNCHOOSE) — so your chalk trail always shows only the route you're currently on, never the ones you already gave up on.",
+  pitfalls: ["Forgetting the unchoose step entirely — without removing the choice after recursing, the path keeps growing forever and every branch after the first gets corrupted by earlier choices.","Adding the un-copied path object directly into the result list — since path is mutated and reused, every entry in result would end up pointing to the same (eventually empty) list unless a copy is stored instead.","Using 'i' instead of 'i + 1' as the next start index when choices can't repeat — that's the difference between generating subsets (no reuse) and generating combinations that allow repeats."],
+  complexityTime:"O(n · 2ⁿ)", complexitySpace:"O(n)", complexityScale:4,
+  complexityNote:"There are 2ⁿ possible subsets (each element is either in or out), and copying the path into the result costs O(n) per subset, so total work is O(n · 2ⁿ) — this sits beyond the scale shown below, which tops out at O(n²); backtracking is fundamentally exponential. Space is O(n) for the recursion depth and the path itself, not counting the output.",
+  memoryStack:["start (int, per call)","i (int, per call)","path (List<Integer>, shared/mutated)"],
+  memoryHeap:"The input array nums[], plus result — a List<List<Integer>> where each entry is a defensive COPY of path taken at the moment it was recorded.",
+  comparison:[
+    {name:"Decision Tree", diff:"Decision Tree is the conceptual picture (every node is a choice point); Choose-Explore-Unchoose is the concrete three-step recursive template that actually walks that tree in code."},
+    {name:"Divide & Conquer (Merge Sort)", diff:"Divide & Conquer splits a problem into independent, non-overlapping subproblems that never need undoing; backtracking explores overlapping shared state (the path) that must be explicitly reset after each branch."}
+  ],
+  tips: ["Say the three words out loud in order every time you write backtracking code: choose, explore, unchoose — the bug is almost always a missing or misplaced unchoose.","When adding a snapshot to your result list, always ask: 'am I storing a reference to my mutable path, or a copy of it?' If it's a reference, every future mutation corrupts already-stored results.","This exact template — with only the loop bounds and the choose/skip condition changing — also solves permutations, combinations, palindrome partitioning, and word search; learning it once here pays off everywhere."],
+  flash: [
+    {q:"What are the three steps of the core backtracking template, in order?", a:"Choose (make a decision), Explore (recurse deeper with that decision in place), Unchoose (undo the decision before trying the next option)."},
+    {q:"Why must a COPY of the path be stored in the result, not the path itself?", a:"path is a single mutable object reused across the whole recursion — storing a reference means every later mutation (including the eventual unchoose back to empty) would corrupt every previously stored result."},
+    {q:"What is the time complexity of generating all subsets this way, and why?", a:"O(n · 2ⁿ) — there are 2ⁿ possible subsets total, and each one costs O(n) to copy into the result."}
+  ]
+},
+
+  
 
 };
 
