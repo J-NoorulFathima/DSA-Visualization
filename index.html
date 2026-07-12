@@ -5180,7 +5180,17 @@ function buildKahnsTopoSort(){
 
   edges.forEach(([u,v])=>{
     indegree[v]++;
-    steps.push({line:2,vars:{edge:`${u} \u2192 ${v}`,'indegree['+v+']':indegree[v]},pointers:[{idx:v,label:'v',color:'amber'}],cellColors:{[v]:'amber'},arrOverride:[...indegree],msg:`Edge ${u} \u2192 ${v} means ${v} depends on ${u} being done first — increment indegree[${v}] to ${indegree[v]}.`});
+    steps.push({
+  line:2,
+  vars:{
+    edge:`${u} → ${v}`,
+    [`indegree[${v}]`]: indegree[v]   // ← computed key, template literal is cleaner too
+  },
+  pointers:[{idx:v,label:'v',color:'amber'}],
+  cellColors:{[v]:'amber'},
+  arrOverride:[...indegree],
+  msg:`Edge ${u} → ${v} means ${v} depends on ${u} being done first — increment indegree[${v}] to ${indegree[v]}.`
+});
   });
 
   const indegreeSnapshot = [...indegree]; // fixed reference used for the queue chip display
@@ -5224,7 +5234,6 @@ function buildKahnsTopoSort(){
 
   const success = order.length===n;
   steps.push({line:16,vars:{'order.size()':order.length,n,result: success? `[${order.join(', ')}]` : 'cycle detected \u2014 empty list returned'},pointers:[],cellColors:{},arrOverride:[...indegree],stack:[...queue],msg: success? `Done. All ${n} nodes were processed — valid topological order: [${order.join(', ')}].` : `Done. Only ${order.length} of ${n} nodes were ever enqueued — the rest are stuck in a cycle, since their indegree never reaches 0. No valid ordering exists.`});
-
   return {steps,code,arr:indegreeSnapshot,structureType:'stack'};
 }
 
